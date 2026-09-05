@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#081011" />
+    <title>PELAGOS / 潮汐生境模拟器</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,500;1,500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app" id="app">
+      <div class="noise"></div>
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="Pelagos home"><span class="brand-icon"><i></i><i></i><i></i></span><span class="brand-word">PELAGOS</span><span class="brand-sub">FIELD SIM 04</span></a>
+        <div class="top-status"><span class="live-dot"></span><span>LIVE HABITAT</span><span class="slash">/</span><span id="clock">18:42:08</span></div>
+        <div class="top-actions"><button class="ghost-btn" id="pause-btn" aria-label="暂停模拟" aria-pressed="false"><i data-lucide="pause"></i><span>PAUSE</span></button><button class="icon-btn" id="reset-btn" aria-label="重置模拟"><i data-lucide="rotate-ccw"></i></button></div>
+      </header>
+      <main class="workspace">
+        <aside class="left-rail panel-glass">
+          <div class="eyebrow">// SUBMERGED RESEARCH / 04</div>
+          <h1>让一片<br /><em>海，活下来。</em></h1>
+          <p class="intro">你是这座漂浮海洋站的最后一名生态工程师。调节潮汐、光谱与氧循环，让夜间珊瑚在 90 秒内重新发光。</p>
+          <div class="mission-card"><div class="card-head"><span>当前任务</span><span class="mission-id">P-04.7</span></div><strong id="mission-title">唤醒夜光珊瑚</strong><div class="mission-progress"><span id="progress-fill"></span></div><div class="progress-meta"><span><b id="progress-count">0</b> / 3 样本</span><span id="timer">01:30</span></div></div>
+          <div class="sample-list" aria-label="样本状态"><button class="sample active" data-sample="0"><span class="sample-num">01</span><span><b>月潮孢子</b><small>ALPHA / 0.42μ</small></span><i class="sample-state"></i></button><button class="sample" data-sample="1"><span class="sample-num">02</span><span><b>深层浮游体</b><small>BETA / 1.18μ</small></span><i class="sample-state"></i></button><button class="sample" data-sample="2"><span class="sample-num">03</span><span><b>冷光珊瑚核</b><small>OMEGA / 0.07μ</small></span><i class="sample-state"></i></button></div>
+          <div class="left-foot"><span class="orbit-key"><i data-lucide="mouse-pointer-2"></i>拖拽旋转生境</span><span class="version">v.2.4.1</span></div>
+        </aside>
+        <section class="scene-wrap" id="scene-wrap"><canvas id="scene-canvas" aria-label="可拖拽旋转的三维潮汐生态舱"></canvas><div class="scene-overlay"></div><div class="scene-label label-top"><span>DEPTH  /  180 M</span><b>SECTOR 07</b></div><div class="scene-label label-bottom"><span>BIOLUMINESCENT ARRAY</span><b>STABLE <i></i></b></div><div class="crosshair" aria-hidden="true"><span></span><i></i></div><div class="hotspot hotspot-a" data-node="0"><button aria-label="采样月潮孢子"><span class="hotspot-pulse"></span><b>α</b></button><small>MOON SPORE</small></div><div class="hotspot hotspot-b" data-node="1"><button aria-label="采样深层浮游体"><span class="hotspot-pulse"></span><b>β</b></button><small>PLANKTON</small></div><div class="hotspot hotspot-c" data-node="2"><button aria-label="采样冷光珊瑚核"><span class="hotspot-pulse"></span><b>Ω</b></button><small>CORAL CORE</small></div><div class="scan-message" id="scan-message"><i data-lucide="scan-line"></i><span>点击发光节点，提取样本</span></div><div class="scene-readout"><span>HABITAT VITALITY</span><strong id="vitality-readout">68</strong><small>%</small></div></section>
+        <aside class="right-rail"><div class="rail-heading"><span class="eyebrow">SYSTEM TELEMETRY</span><span class="signal"><i></i> ONLINE</span></div><div class="vital-card panel-glass"><div class="vital-top"><span>生态活力</span><strong><b id="vitality">68</b><small>%</small></strong></div><div class="vital-meter"><span id="vitality-meter"></span><i></i></div><div class="meter-scale"><span>CRITICAL</span><span>OPTIMAL WINDOW 72—88</span></div><p id="state-copy">珊瑚正在等待第一束潮汐。</p></div><div class="metrics panel-glass"><div class="metric"><span><i class="metric-dot aqua"></i>潮汐流速</span><strong id="flow-value">54</strong><small>m³/s</small></div><div class="metric"><span><i class="metric-dot amber"></i>光谱纯度</span><strong id="spectrum-value">41</strong><small>%</small></div><div class="metric"><span><i class="metric-dot pink"></i>氧循环</span><strong id="oxygen-value">76</strong><small>ppm</small></div></div><div class="log panel-glass"><div class="log-head"><span>EVENT LOG</span><span id="log-time">18:42:08</span></div><div id="event-log"><p><i></i>舱体压力已校准</p><p><i></i>侦测到 3 个活性节点</p><p class="muted"><i></i>等待工程师输入…</p></div></div><div class="tip"><span class="tip-mark">i</span><p>保持活力在 <b>72—88%</b>，珊瑚会进入共生态。</p></div></aside>
+      </main>
+      <section class="control-bar panel-glass" aria-label="生态控制台"><div class="control-title"><span class="eyebrow">CONTROL DECK</span><strong>校准生境参数</strong></div><label class="slider-control"><span><b class="aqua-text">潮汐</b><output id="tide-output">54</output></span><input id="tide-range" type="range" min="0" max="100" value="54" /></label><label class="slider-control"><span><b class="amber-text">光谱</b><output id="light-output">41</output></span><input id="light-range" type="range" min="0" max="100" value="41" /></label><label class="slider-control"><span><b class="pink-text">氧循环</b><output id="oxygen-output">76</output></span><input id="oxygen-range" type="range" min="0" max="100" value="76" /></label><div class="control-actions"><button class="pulse-btn" id="pulse-btn"><i data-lucide="zap"></i><span>脉冲校准</span><kbd>SPACE</kbd></button><button class="seed-btn" id="seed-btn" aria-label="生成新潮汐种子"><i data-lucide="sparkles"></i></button></div></section>
+      <div class="toast" id="toast" role="status" aria-live="polite"></div><div class="success-modal" id="success-modal" aria-hidden="true"><div class="modal-inner"><span class="eyebrow">FIELD REPORT / P-04.7</span><h2>潮汐，醒了。</h2><p>三枚样本已归位。夜光珊瑚重新接管了这片黑暗。</p><div class="report-grid"><div><small>VITALITY</small><b id="report-vitality">82%</b></div><div><small>SAMPLES</small><b>03 / 03</b></div><div><small>RANK</small><b>DEEP KEEPER</b></div></div><button id="continue-btn">继续观测 <i data-lucide="arrow-right"></i></button></div></div>
+    </div>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
