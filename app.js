@@ -158,16 +158,11 @@ const MAX_WORKS = 18;
 const builtInPresets = {
   reveal: { label: "显影", mode: "relief", depth: 1.2, motion: 0.26, size: 1.1, bloom: 0.48, warmth: 0.08, sat: 1.28 },
   tide: { label: "潮汐", mode: "wave", depth: 1.05, motion: 0.52, size: 1.0, bloom: 0.44, warmth: -0.12, sat: 1.36 },
-  drift: { label: "游离", mode: "dust", depth: 1.4, motion: 0.36, size: 0.86, bloom: 0.4, warmth: 0.02, sat: 1.18 },
-  ember: { label: "余烬", mode: "relief", depth: 1.65, motion: 0.12, size: 0.8, bloom: 0.56, warmth: 0.42, sat: 1.22 },
 };
 const inspireLooks = [
   { mode: "relief", depth: 1.18, motion: 0.22, size: 1.12, bloom: 0.46, warmth: 0.16, sat: 1.24 },
   { mode: "wave", depth: 0.92, motion: 0.62, size: 0.96, bloom: 0.5, warmth: -0.18, sat: 1.4 },
-  { mode: "dust", depth: 1.52, motion: 0.4, size: 0.78, bloom: 0.38, warmth: 0.04, sat: 1.12 },
-  { mode: "vortex", depth: 1.36, motion: 0.54, size: 0.88, bloom: 0.5, warmth: 0.22, sat: 1.3 },
-  { mode: "flow", depth: 1.08, motion: 0.68, size: 0.94, bloom: 0.42, warmth: -0.26, sat: 1.38 },
-  { mode: "ember", depth: 1.7, motion: 0.16, size: 0.76, bloom: 0.6, warmth: 0.48, sat: 1.18 },
+  { mode: "relief", depth: 1.54, motion: 0.15, size: 0.82, bloom: 0.57, warmth: 0.38, sat: 1.2 },
 ];
 let customPresets = loadCustomPresets();
 let applyingPreset = false;

@@ -12,30 +12,32 @@
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <main class="experience" id="app" data-cabinet="moods">
+  <main class="experience" id="app" data-cabinet="works">
     <div class="grain" aria-hidden="true"></div>
     <aside class="info-rail" aria-label="底片柜">
       <div class="identity">
-        <span class="seal" aria-hidden="true">棱</span>
+        <span class="prism-mark" aria-hidden="true"><i></i><i></i><i></i></span>
         <span class="brand">
-          <b>PRISM</b>
-          <small id="plate-caption">PLATE 01 · 显影</small>
+          <b>PRISM / ARCHIVE</b>
+          <small id="plate-caption">A FIELD OF RETAINED LIGHT</small>
         </span>
       </div>
       <header class="hero" id="hero">
         <button class="primary-button" id="choose-button" type="button"><span>放入底片</span><i data-lucide="plus" aria-hidden="true"></i></button>
       </header>
       <section class="cabinet" aria-label="收藏柜">
-        <div class="cabinet-tabs" role="tablist" aria-label="收藏种类">
-          <button type="button" id="tab-moods" role="tab" aria-selected="true" aria-controls="mood-pane">气质</button>
-          <button type="button" id="tab-works" role="tab" aria-selected="false" aria-controls="works-pane">作品</button>
+        <div class="archive-heading">
+          <span>个人档案</span>
+          <strong>作品收藏</strong>
+          <button id="save-work" type="button">收藏此刻</button>
         </div>
-        <div class="cabinet-pane" id="mood-pane" role="tabpanel">
+        <div class="legacy-moods" aria-hidden="true" hidden>
+          <button type="button" id="tab-moods" role="tab" aria-selected="false" aria-controls="mood-pane">气质</button>
+          <button type="button" id="tab-works" role="tab" aria-selected="true" aria-controls="works-pane">作品</button>
+          <div class="cabinet-pane" id="mood-pane" role="tabpanel" hidden>
           <select id="preset-select" class="sr-only" aria-label="选择气质预设">
             <option value="reveal">显影</option>
             <option value="tide">潮汐</option>
-            <option value="drift">游离</option>
-            <option value="ember">余烬</option>
             <option value="manual">当前微调</option>
           </select>
           <div class="mood-list" id="mood-list"></div>
@@ -43,13 +45,11 @@
             <button id="save-preset" type="button">收藏气质</button>
             <button id="delete-preset" type="button" disabled>移出</button>
           </div>
-        </div>
-        <div class="cabinet-pane" id="works-pane" role="tabpanel" hidden>
-          <div class="works-grid" id="works-grid"></div>
-          <p class="works-empty" id="works-empty">定格一张满意的画面，再放进柜子。</p>
-          <div class="cabinet-actions">
-            <button id="save-work" type="button">收藏作品</button>
           </div>
+        </div>
+        <div class="cabinet-pane" id="works-pane" role="tabpanel">
+          <div class="works-grid" id="works-grid"></div>
+          <p class="works-empty" id="works-empty">这里会留下你做成的光。<br />点开一张作品，可再次查看或恢复当时的画面。</p>
         </div>
       </section>
       <section class="source-chip" aria-label="当前图像">
@@ -68,9 +68,6 @@
         <div class="mode-accordion" role="group" aria-label="空间模式">
           <button class="mode-button active" type="button" data-mode="relief" aria-label="浮雕" aria-pressed="true"><em>01</em><span>浮雕</span></button>
           <button class="mode-button" type="button" data-mode="wave" aria-label="波面" aria-pressed="false"><em>02</em><span>波面</span></button>
-          <button class="mode-button" type="button" data-mode="dust" aria-label="星尘" aria-pressed="false"><em>03</em><span>星尘</span></button>
-          <button class="mode-button" type="button" data-mode="vortex" aria-label="漩涡" aria-pressed="false"><em>04</em><span>漩涡</span></button>
-          <button class="mode-button" type="button" data-mode="flow" aria-label="流场" aria-pressed="false"><em>05</em><span>流场</span></button>
         </div>
         <div class="dock-tools">
           <button class="dock-button" id="tune-button" type="button" aria-label="调整参数" aria-expanded="false" aria-controls="parameter-panel"><i data-lucide="sliders-horizontal" aria-hidden="true"></i><span>调整</span></button>
