@@ -117,6 +117,10 @@ const printTime = document.querySelector("#print-time");
 const printDownload = document.querySelector("#print-download");
 const printDelete = document.querySelector("#print-delete");
 const printClose = document.querySelector("#print-close");
+const workViewer = document.querySelector("#work-viewer");
+const workViewerImage = document.querySelector("#work-viewer-image");
+const workViewerTitle = document.querySelector("#work-viewer-title");
+const workViewerClose = document.querySelector("#work-viewer-close");
 
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const allowedTypes = new Set(["image/png", "image/jpeg", "image/webp", "image/avif"]);
@@ -1177,10 +1181,16 @@ function openWork(id) {
   const work = works.find((item) => item.id === id);
   if (!work) return;
   activeWorkId = id;
-  printImage.src = work.print || work.thumb;
-  printTitle.textContent = work.title;
-  printTime.textContent = new Date(work.createdAt).toLocaleString("zh-CN", { hour12: false });
-  printDialog.showModal();
+  workViewerImage.src = work.print || work.thumb;
+  workViewerTitle.textContent = work.title;
+  workViewer.hidden = false;
+  stage.classList.add("viewing-work");
+  showToast("已载入收藏作品");
+}
+
+function closeWorkViewer() {
+  workViewer.hidden = true;
+  stage.classList.remove("viewing-work");
 }
 
 function downloadActiveWork() {
@@ -1409,6 +1419,7 @@ worksGrid.addEventListener("click", (event) => {
 printDownload.addEventListener("click", downloadActiveWork);
 printDelete.addEventListener("click", () => deleteActiveWork());
 printClose.addEventListener("click", () => printDialog.close());
+workViewerClose.addEventListener("click", closeWorkViewer);
 inspireButton.addEventListener("click", inspire);
 helpButton.addEventListener("click", () => helpDialog.showModal());
 restoreDefaults.addEventListener("click", () => applyPreset("reveal"));

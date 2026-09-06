@@ -62,6 +62,11 @@
       <div class="viewfinder" aria-hidden="true"></div>
       <canvas id="fallback-canvas" aria-hidden="true"></canvas>
       <canvas id="particle-canvas" tabindex="0" aria-label="粒子画布。拖动或使用方向键旋转，滚轮缩放，空格暂停，R 灵感，B 收藏作品，问号查看快捷键，Escape 重置。"></canvas>
+      <section class="work-viewer" id="work-viewer" aria-label="已载入作品" hidden>
+        <img id="work-viewer-image" alt="已收藏的粒子作品" />
+        <div class="work-viewer-meta"><span>ARCHIVE VIEW</span><strong id="work-viewer-title"></strong></div>
+        <button id="work-viewer-close" type="button">返回编辑</button>
+      </section>
     </section>
     <aside class="controls-rail" aria-label="创作控制">
       <section class="control-dock" aria-label="粒子控制">
