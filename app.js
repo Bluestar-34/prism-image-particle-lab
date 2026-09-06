@@ -6,6 +6,8 @@ import { gsap } from "gsap";
 import {
   Blend,
   createIcons,
+  Aperture,
+  Download,
   ImagePlus,
   Layers3,
   Pause,
@@ -16,10 +18,13 @@ import {
   SlidersHorizontal,
   Sparkles,
   Waves,
+  X,
 } from "lucide";
 
 const icons = {
+  Aperture,
   Blend,
+  Download,
   ImagePlus,
   Layers3,
   Pause,
@@ -30,6 +35,7 @@ const icons = {
   SlidersHorizontal,
   Sparkles,
   Waves,
+  X,
 };
 createIcons({ icons });
 
@@ -43,6 +49,10 @@ const resetButton = document.querySelector("#reset-button");
 const tuneButton = document.querySelector("#tune-button");
 const scatterButton = document.querySelector("#scatter-button");
 const pauseButton = document.querySelector("#pause-button");
+const captureButton = document.querySelector("#capture-button");
+const captureActions = document.querySelector("#capture-actions");
+const captureExit = document.querySelector("#capture-exit");
+const exportButton = document.querySelector("#export-button");
 const parameterPanel = document.querySelector("#parameter-panel");
 const canvasHint = document.querySelector("#canvas-hint");
 const processing = document.querySelector("#processing");
@@ -68,6 +78,8 @@ let elapsed = Math.random() * 30;
 let paused = false;
 let scattered = false;
 let panelOpen = false;
+let captureMode = false;
+let exporting = false;
 let dragActive = false;
 let dragMoved = false;
 let dragDepth = 0;
@@ -549,6 +561,64 @@ function togglePause() {
   replacePauseIcon();
 }
 
+function setCaptureMode(active) {
+  captureMode = active;
+  if (active && panelOpen) toggleParameters(false);
+  app.classList.toggle("capture-mode", active);
+  captureActions.inert = !active;
+  captureActions.setAttribute("aria-hidden", String(!active));
+  captureButton.setAttribute("aria-pressed", String(active));
+  requestAnimationFrame(() => {
+    resize();
+    resetView(false);
+    (active ? exportButton : captureButton).focus();
+  });
+}
+
+function exportName() {
+  const source = sourceName.textContent.trim().toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, "-").replace(/^-|-$/g, "") || "image";
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  return `prism-${source}-${stamp}.png`;
+}
+
+async function exportPng() {
+  if (exporting) return;
+  exporting = true;
+  exportButton.disabled = true;
+  exportButton.querySelector("span").textContent = "正在显影";
+  const rect = stage.getBoundingClientRect();
+  const exportScale = Math.min(2, 4096 / Math.max(rect.width, rect.height));
+  const originalPixelRatio = renderer.getPixelRatio();
+  const originalZoom = camera.position.z;
+  try {
+    renderer.setPixelRatio(exportScale);
+    renderer.setSize(rect.width, rect.height, false);
+    composer.setPixelRatio(exportScale);
+    composer.setSize(rect.width, rect.height);
+    uniforms.uPixelRatio.value = exportScale;
+    camera.position.z = zoomTarget;
+    composer.render();
+    const blob = await new Promise((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error("无法读取导出画面")), "image/png"));
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = exportName();
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast(`已导出 ${(blob.size / 1024 / 1024).toFixed(1)} MB · ${Math.round(rect.width * exportScale)} × ${Math.round(rect.height * exportScale)}`);
+  } catch (error) {
+    showToast(error.message || "导出失败，请重试");
+  } finally {
+    renderer.setPixelRatio(originalPixelRatio);
+    composer.setPixelRatio(originalPixelRatio);
+    resize();
+    camera.position.z = originalZoom;
+    exportButton.disabled = false;
+    exportButton.querySelector("span").textContent = "导出 2× PNG";
+    exporting = false;
+  }
+}
+
 function resetView(showMessage = true) {
   rotationTarget = { x: -0.04, y: 0.02 };
   zoomTarget = fittedZoom;
@@ -632,6 +702,9 @@ resetButton.addEventListener("click", () => resetView());
 tuneButton.addEventListener("click", () => toggleParameters());
 scatterButton.addEventListener("click", toggleScatter);
 pauseButton.addEventListener("click", togglePause);
+captureButton.addEventListener("click", () => setCaptureMode(true));
+captureExit.addEventListener("click", () => setCaptureMode(false));
+exportButton.addEventListener("click", exportPng);
 
 document.querySelectorAll(".mode-button").forEach((button) => {
   button.addEventListener("click", () => setMode(button.dataset.mode));
@@ -695,7 +768,8 @@ window.addEventListener("keydown", (event) => {
     openFilePicker();
   }
   if (event.key === "Escape") {
-    if (panelOpen) toggleParameters(false);
+    if (captureMode) setCaptureMode(false);
+    else if (panelOpen) toggleParameters(false);
     else resetView();
   }
   if (event.target === canvas && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {

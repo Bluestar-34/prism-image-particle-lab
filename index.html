@@ -52,11 +52,17 @@
           </section>
           <button class="dock-button" id="scatter-button" type="button" aria-label="散开粒子" aria-pressed="false"><i data-lucide="blend" aria-hidden="true"></i><span>散开</span></button>
           <button class="dock-button" id="pause-button" type="button" aria-label="暂停动画" aria-pressed="false"><i data-lucide="pause" aria-hidden="true"></i><span>暂停</span></button>
+          <button class="dock-button" id="capture-button" type="button" aria-label="进入定格模式"><i data-lucide="aperture" aria-hidden="true"></i><span>定格</span></button>
           <button class="dock-button" id="reset-button" type="button" aria-label="重置视角"><i data-lucide="rotate-ccw" aria-hidden="true"></i><span>复位</span></button>
         </div>
       </section>
       <p class="canvas-hint" id="canvas-hint">拖动旋转<br />滚轮缩放</p>
     </aside>
+    <div class="capture-actions" id="capture-actions" aria-hidden="true" inert>
+      <span>定格模式</span>
+      <button id="export-button" type="button"><i data-lucide="download" aria-hidden="true"></i><span>导出 2× PNG</span></button>
+      <button id="capture-exit" type="button" aria-label="退出定格模式"><i data-lucide="x" aria-hidden="true"></i></button>
+    </div>
     <div class="drop-layer" id="drop-layer" aria-hidden="true"><i data-lucide="image-plus" aria-hidden="true"></i><h2>让这张图，成为光。</h2><p>松手导入 · JPG / PNG / WEBP / AVIF</p></div>
     <div class="processing" id="processing" role="status" aria-live="polite"><span></span><b>正在重建图像</b></div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>

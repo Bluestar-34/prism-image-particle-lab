@@ -10,8 +10,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet" />
-  <script type="module" crossorigin src="/assets/index-CCAMFoYJ.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-C7v5ti8M.css">
+  <script type="module" crossorigin src="/assets/index-hRVH-yON.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-DrjCZTqA.css">
 </head>
 <body>
   <main class="experience" id="app">
@@ -53,11 +53,17 @@
           </section>
           <button class="dock-button" id="scatter-button" type="button" aria-label="散开粒子" aria-pressed="false"><i data-lucide="blend" aria-hidden="true"></i><span>散开</span></button>
           <button class="dock-button" id="pause-button" type="button" aria-label="暂停动画" aria-pressed="false"><i data-lucide="pause" aria-hidden="true"></i><span>暂停</span></button>
+          <button class="dock-button" id="capture-button" type="button" aria-label="进入定格模式"><i data-lucide="aperture" aria-hidden="true"></i><span>定格</span></button>
           <button class="dock-button" id="reset-button" type="button" aria-label="重置视角"><i data-lucide="rotate-ccw" aria-hidden="true"></i><span>复位</span></button>
         </div>
       </section>
       <p class="canvas-hint" id="canvas-hint">拖动旋转<br />滚轮缩放</p>
     </aside>
+    <div class="capture-actions" id="capture-actions" aria-hidden="true" inert>
+      <span>定格模式</span>
+      <button id="export-button" type="button"><i data-lucide="download" aria-hidden="true"></i><span>导出 2× PNG</span></button>
+      <button id="capture-exit" type="button" aria-label="退出定格模式"><i data-lucide="x" aria-hidden="true"></i></button>
+    </div>
     <div class="drop-layer" id="drop-layer" aria-hidden="true"><i data-lucide="image-plus" aria-hidden="true"></i><h2>让这张图，成为光。</h2><p>松手导入 · JPG / PNG / WEBP / AVIF</p></div>
     <div class="processing" id="processing" role="status" aria-live="polite"><span></span><b>正在重建图像</b></div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>

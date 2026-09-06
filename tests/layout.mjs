@@ -141,6 +141,24 @@ try {
   await page.locator('#scatter-button').click();
   await page.locator('#pause-button').click();
 
+  await page.locator('#capture-button').click();
+  await delay(700);
+  check('capture mode hides side UI and exposes capture actions', await page.locator('#app').evaluate(el => el.classList.contains('capture-mode')) && await page.locator('#capture-actions').evaluate(el => !el.inert && el.getAttribute('aria-hidden') === 'false'));
+  const captureGeometry = await page.evaluate(() => {
+    const stage = document.querySelector('.stage').getBoundingClientRect();
+    return { x: stage.x, y: stage.y, right: stage.right, bottom: stage.bottom, width: stage.width, height: stage.height, viewportWidth: innerWidth, viewportHeight: innerHeight };
+  });
+  check('capture mode gives artwork the viewport', captureGeometry.x <= 1 && captureGeometry.y <= 1 && captureGeometry.right >= captureGeometry.viewportWidth - 1 && captureGeometry.bottom >= captureGeometry.viewportHeight - 1, captureGeometry);
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('#export-button').click();
+  const download = await downloadPromise;
+  check('2x PNG export downloads descriptive filename', /^prism-.+\.png$/.test(download.suggestedFilename()), { filename: download.suggestedFilename() });
+  await page.waitForFunction(() => !document.querySelector('#export-button').disabled);
+  check('2x PNG export reports dimensions', /\d+ × \d+/.test(await page.locator('#toast').innerText()));
+  await page.keyboard.press('Escape');
+  await delay(350);
+  check('Escape exits capture mode and restores focus', await page.locator('#app').evaluate(el => !el.classList.contains('capture-mode')) && await page.evaluate(() => document.activeElement.id === 'capture-button'));
+
   const portrait = await fixture(240, 480, 'portrait-check.png');
   const landscape = await fixture(640, 240, 'landscape-check.png');
   const chooserPromise = page.waitForEvent('filechooser');
