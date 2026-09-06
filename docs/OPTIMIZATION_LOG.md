@@ -165,3 +165,8 @@
 
 - 默认 Chrome（无 SwiftShader 参数）启动后截图确认粒子可见。
 - 默认 Chrome 与软件 WebGL 两种模式均显示 `9,890 个粒子`，无 page error；截图保存于 `docs/visual-checks/default-after-lowpower.png`。
+
+## 2026-09-06 · 18 / 超大画布 DPR 保护
+
+- 针对高分辨率显示器仍可能空画布的情况，增加画布面积保护：当中央画布超过约 150 万 CSS 像素时，将渲染 DPR 限制为 1，避免一次性创建过大的 WebGL framebuffer 触发上下文丢失。
+- 普通视口继续使用质量档位的 DPR；仅超大画布降为稳定模式，不影响粒子采样数量和交互。

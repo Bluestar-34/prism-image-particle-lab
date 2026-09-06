@@ -1226,7 +1226,9 @@ function resize() {
   const rect = stage.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) return;
   const profile = qualityProfiles[runtimeQuality];
-  const pixelRatio = Math.min(devicePixelRatio, isMobile() ? profile.mobileDpr : profile.desktopDpr);
+  const displayArea = rect.width * rect.height;
+  const safeDprCap = displayArea > 1_500_000 ? 1 : Infinity;
+  const pixelRatio = Math.min(devicePixelRatio, isMobile() ? profile.mobileDpr : profile.desktopDpr, safeDprCap);
   renderer.setPixelRatio(pixelRatio);
   renderer.setSize(rect.width, rect.height, false);
   composer.setPixelRatio(pixelRatio);
