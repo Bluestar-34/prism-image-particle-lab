@@ -1,120 +1,68 @@
 <!doctype html>
 <html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#08090c" />
-    <meta name="description" content="将任意图像实时重建为可交互的 3D 粒子场。" />
-    <title>PRISM / 3D Image Particle Lab</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 3 29 26H3Z' fill='%2308090c' stroke='%23d8ff52'/%3E%3Ccircle cx='16' cy='17' r='3' fill='%23d8ff52'/%3E%3C/svg%3E" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
-    <script type="module" crossorigin src="/assets/index-CpCMCaQ9.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-aDFK-vNj.css">
-  </head>
-  <body>
-    <div class="app" id="app">
-      <div class="grain" aria-hidden="true"></div>
-
-      <header class="site-header">
-        <a class="brand" href="#" aria-label="Prism home">
-          <span class="brand-symbol" aria-hidden="true"><i></i></span>
-          <span class="brand-word">PRISM</span>
-          <span class="brand-sub">3D IMAGE LAB</span>
-        </a>
-
-        <div class="header-actions">
-          <button class="icon-button tooltip" id="reset-view" type="button" aria-label="重置视角" data-tooltip="重置视角">
-            <i data-lucide="rotate-ccw" aria-hidden="true"></i>
-          </button>
-          <button class="header-upload" id="header-upload" type="button">
-            <i data-lucide="image-plus" aria-hidden="true"></i>
-            <span>换一张图片</span>
-          </button>
-        </div>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#131313" />
+  <meta name="description" content="让图像成为光。用自己的图片创作可旋转、可呼吸的三维粒子作品。" />
+  <title>PRISM — 图像成为光</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 4 28 26H4Z' fill='none' stroke='%23cfb09b' stroke-width='2'/%3E%3Cpath d='m16 4 4 22M4 26l16-8' fill='none' stroke='%23cfb09b'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script type="module" crossorigin src="/assets/index-CCAMFoYJ.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-C7v5ti8M.css">
+</head>
+<body>
+  <main class="experience" id="app">
+    <div class="grain" aria-hidden="true"></div>
+    <aside class="info-rail" aria-label="图像创作">
+      <div class="identity">
+        <span class="brand"><svg class="brand-mark" viewBox="0 0 28 28" fill="none" aria-hidden="true"><path d="M14 3 26 24H2L14 3Z"/><path d="m14 3 4 21M2 24l16-8"/></svg><span>PRISM</span></span>
+        <span class="brand-caption">图像粒子实验</span>
+      </div>
+      <header class="hero" id="hero">
+        <h1><span>让图像，</span><span>成为光。</span></h1>
+        <p>一张图片，一片粒子。<br />在空间里，重新看见。</p>
+        <button class="primary-button" id="choose-button" type="button"><span>选择图片</span><i data-lucide="plus" aria-hidden="true"></i></button>
+        <span class="import-hint">或将图片拖入此处</span>
       </header>
-
-      <main class="stage" id="drop-target">
-        <canvas id="particle-canvas" aria-label="可拖拽旋转的三维图像粒子场"></canvas>
-        <div class="ambient-light" aria-hidden="true"></div>
-
-        <section class="intro" aria-labelledby="page-title">
-          <p class="kicker">IMAGE → PARTICLES → DEPTH</p>
-          <h1 id="page-title">把图像，<br />拖进<em>光里。</em></h1>
-          <p class="intro-copy">每一个像素都会被重建为可旋转、可呼吸的三维粒子场。</p>
-          <button class="choose-button" id="choose-button" type="button">
-            <i data-lucide="upload" aria-hidden="true"></i>
-            <span>选择一张图片</span>
-          </button>
-          <p class="privacy"><i data-lucide="shield-check" aria-hidden="true"></i> 图片只在本地浏览器中处理</p>
-        </section>
-
-        <div class="orbit-hint" id="orbit-hint" aria-hidden="true">
-          <i data-lucide="mouse-pointer-2"></i>
-          <span>拖动图像，观察景深</span>
+    </aside>
+    <section class="stage" id="drop-target" aria-label="三维图像粒子工作区">
+      <canvas id="particle-canvas" tabindex="0" aria-label="粒子画布。拖动或使用方向键旋转，滚轮缩放，空格暂停，Escape 重置。"></canvas>
+    </section>
+    <section class="source-chip" aria-label="当前图像">
+      <canvas id="source-preview" width="72" height="72" aria-hidden="true"></canvas>
+      <span class="source-copy"><strong id="source-name">Flower signal</strong><small id="source-meta">正在采样</small></span>
+      <button class="source-replace tooltip" id="replace-button" type="button" aria-label="替换图片" data-tooltip="替换图片"><i data-lucide="refresh-cw" aria-hidden="true"></i></button>
+    </section>
+    <aside class="controls-rail" aria-label="创作控制">
+      <section class="control-dock" aria-label="粒子控制">
+        <div class="mode-accordion" role="group" aria-label="空间模式">
+          <span class="group-label">形态</span>
+          <button class="mode-button active" type="button" data-mode="relief" aria-label="浮雕" aria-pressed="true"><i data-lucide="layers-3" aria-hidden="true"></i><span>浮雕</span></button>
+          <button class="mode-button" type="button" data-mode="wave" aria-label="波面" aria-pressed="false"><i data-lucide="waves" aria-hidden="true"></i><span>波面</span></button>
+          <button class="mode-button" type="button" data-mode="dust" aria-label="星尘" aria-pressed="false"><i data-lucide="sparkles" aria-hidden="true"></i><span>星尘</span></button>
         </div>
-
-        <div class="image-badge" aria-live="polite">
-          <canvas id="source-preview" width="96" height="96" aria-hidden="true"></canvas>
-          <div>
-            <strong id="image-name">PRISM MOTH</strong>
-            <span id="image-meta">PROCEDURAL SAMPLE · 0 PARTICLES</span>
-          </div>
+        <div class="dock-tools">
+          <button class="dock-button" id="tune-button" type="button" aria-label="调整参数" aria-expanded="false" aria-controls="parameter-panel"><i data-lucide="sliders-horizontal" aria-hidden="true"></i><span>调整</span></button>
+          <section class="parameter-panel" id="parameter-panel" aria-label="粒子参数" aria-hidden="true" inert>
+            <label class="range-control"><span><b>景深</b><output id="depth-output">1.20</output></span><input id="depth-range" type="range" min="0" max="2" step="0.01" value="1.20" /></label>
+            <label class="range-control"><span><b>流动</b><output id="motion-output">0.32</output></span><input id="motion-range" type="range" min="0" max="1" step="0.01" value="0.32" /></label>
+            <label class="range-control"><span><b>粒径</b><output id="size-output">1.10</output></span><input id="size-range" type="range" min="0.55" max="1.8" step="0.01" value="1.10" /></label>
+          </section>
+          <button class="dock-button" id="scatter-button" type="button" aria-label="散开粒子" aria-pressed="false"><i data-lucide="blend" aria-hidden="true"></i><span>散开</span></button>
+          <button class="dock-button" id="pause-button" type="button" aria-label="暂停动画" aria-pressed="false"><i data-lucide="pause" aria-hidden="true"></i><span>暂停</span></button>
+          <button class="dock-button" id="reset-button" type="button" aria-label="重置视角"><i data-lucide="rotate-ccw" aria-hidden="true"></i><span>复位</span></button>
         </div>
-
-        <section class="control-bar" aria-label="粒子控制面板">
-          <div class="mode-control">
-            <span class="control-title">空间形态</span>
-            <div class="segmented" role="group" aria-label="空间形态">
-              <button type="button" data-mode="relief" class="active" aria-pressed="true">浮雕</button>
-              <button type="button" data-mode="flat" aria-pressed="false">平面</button>
-              <button type="button" data-mode="cloud" aria-pressed="false">云层</button>
-            </div>
-          </div>
-
-          <label class="slider-control">
-            <span class="slider-head"><span>景深</span><output id="depth-output">1.20</output></span>
-            <input id="depth-range" type="range" min="0" max="2" value="1.2" step="0.01" />
-          </label>
-
-          <label class="slider-control">
-            <span class="slider-head"><span>流动</span><output id="motion-output">0.38</output></span>
-            <input id="motion-range" type="range" min="0" max="1" value="0.38" step="0.01" />
-          </label>
-
-          <label class="slider-control point-control">
-            <span class="slider-head"><span>粒径</span><output id="size-output">1.10</output></span>
-            <input id="size-range" type="range" min="0.5" max="2" value="1.1" step="0.01" />
-          </label>
-
-          <div class="tool-actions">
-            <button class="tool-button tooltip" id="scatter-button" type="button" aria-label="散开粒子" aria-pressed="false" data-tooltip="散开 / 聚合">
-              <i data-lucide="sparkles" aria-hidden="true"></i>
-            </button>
-            <button class="tool-button tooltip" id="pause-button" type="button" aria-label="暂停动画" aria-pressed="false" data-tooltip="暂停 / 继续">
-              <i data-lucide="pause" aria-hidden="true"></i>
-            </button>
-          </div>
-        </section>
-
-        <div class="drop-overlay" id="drop-overlay" aria-hidden="true">
-          <div class="drop-message">
-            <span class="drop-icon"><i data-lucide="scan-line" aria-hidden="true"></i></span>
-            <h2>松手，开始重构</h2>
-            <p>JPG · PNG · WEBP · AVIF</p>
-          </div>
-        </div>
-
-        <div class="processing" id="processing" role="status" aria-live="polite">
-          <span class="processing-ring"></span>
-          <strong>正在读取像素</strong>
-        </div>
-
-        <div class="toast" id="toast" role="status" aria-live="polite"></div>
-        <input id="file-input" type="file" accept="image/png,image/jpeg,image/webp,image/avif" hidden />
-      </main>
-    </div>
-
-  </body>
+      </section>
+      <p class="canvas-hint" id="canvas-hint">拖动旋转<br />滚轮缩放</p>
+    </aside>
+    <div class="drop-layer" id="drop-layer" aria-hidden="true"><i data-lucide="image-plus" aria-hidden="true"></i><h2>让这张图，成为光。</h2><p>松手导入 · JPG / PNG / WEBP / AVIF</p></div>
+    <div class="processing" id="processing" role="status" aria-live="polite"><span></span><b>正在重建图像</b></div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <input id="file-input" type="file" accept="image/png,image/jpeg,image/webp,image/avif" hidden />
+  </main>
+</body>
 </html>
+

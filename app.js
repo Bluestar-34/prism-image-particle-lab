@@ -1,0 +1,757 @@
+import * as THREE from "three";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { gsap } from "gsap";
+import {
+  Blend,
+  createIcons,
+  ImagePlus,
+  Layers3,
+  Pause,
+  Play,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  SlidersHorizontal,
+  Sparkles,
+  Waves,
+} from "lucide";
+
+const icons = {
+  Blend,
+  ImagePlus,
+  Layers3,
+  Pause,
+  Play,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  SlidersHorizontal,
+  Sparkles,
+  Waves,
+};
+createIcons({ icons });
+
+const app = document.querySelector("#app");
+const stage = document.querySelector("#drop-target");
+const canvas = document.querySelector("#particle-canvas");
+const fileInput = document.querySelector("#file-input");
+const chooseButton = document.querySelector("#choose-button");
+const replaceButton = document.querySelector("#replace-button");
+const resetButton = document.querySelector("#reset-button");
+const tuneButton = document.querySelector("#tune-button");
+const scatterButton = document.querySelector("#scatter-button");
+const pauseButton = document.querySelector("#pause-button");
+const parameterPanel = document.querySelector("#parameter-panel");
+const canvasHint = document.querySelector("#canvas-hint");
+const processing = document.querySelector("#processing");
+const toast = document.querySelector("#toast");
+const sourcePreview = document.querySelector("#source-preview");
+const sourceName = document.querySelector("#source-name");
+const sourceMeta = document.querySelector("#source-meta");
+const depthRange = document.querySelector("#depth-range");
+const motionRange = document.querySelector("#motion-range");
+const sizeRange = document.querySelector("#size-range");
+const depthOutput = document.querySelector("#depth-output");
+const motionOutput = document.querySelector("#motion-output");
+const sizeOutput = document.querySelector("#size-output");
+
+const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const allowedTypes = new Set(["image/png", "image/jpeg", "image/webp", "image/avif"]);
+const isMobile = () => innerWidth <= 640;
+
+let points = null;
+let currentSource = null;
+let customImageLoaded = false;
+let elapsed = Math.random() * 30;
+let paused = false;
+let scattered = false;
+let panelOpen = false;
+let dragActive = false;
+let dragMoved = false;
+let dragDepth = 0;
+let toastTimer;
+let revealStartedAt = performance.now();
+let lastPointer = { x: 0, y: 0 };
+let rotationTarget = { x: -0.04, y: 0.02 };
+let zoomTarget = isMobile() ? 7.2 : 6.55;
+let rootYTarget = 0;
+let worldSize = { width: 4.65, height: 4.15 };
+let fittedZoom = zoomTarget;
+
+const renderer = new THREE.WebGLRenderer({
+  canvas,
+  alpha: true,
+  antialias: false,
+  powerPreference: "high-performance",
+});
+renderer.setClearColor(0x000000, 0);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.06;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 80);
+camera.position.set(0, 0, zoomTarget);
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), isMobile() ? 0.34 : 0.48, 0.58, 0.2);
+composer.addPass(bloom);
+
+const particleRoot = new THREE.Group();
+particleRoot.position.y = rootYTarget;
+particleRoot.rotation.set(rotationTarget.x, rotationTarget.y, 0);
+scene.add(particleRoot);
+
+const pointer = new THREE.Vector2(0, 0);
+const uniforms = {
+  uTime: { value: elapsed },
+  uReveal: { value: 0 },
+  uScatter: { value: 0 },
+  uDepth: { value: Number(depthRange.value) },
+  uMotion: { value: Number(motionRange.value) },
+  uPointSize: { value: Number(sizeRange.value) },
+  uPixelRatio: { value: 1 },
+  uModes: { value: new THREE.Vector3(1, 0, 0) },
+  uPointer: { value: pointer },
+};
+
+const vertexShader = /* glsl */ `
+  attribute vec3 aOrigin;
+  attribute vec3 aScatter;
+  attribute float aLuma;
+  attribute float aRandom;
+  attribute float aEdge;
+  attribute float aAlpha;
+
+  uniform float uTime;
+  uniform float uReveal;
+  uniform float uScatter;
+  uniform float uDepth;
+  uniform float uMotion;
+  uniform float uPointSize;
+  uniform float uPixelRatio;
+  uniform vec3 uModes;
+  uniform vec2 uPointer;
+
+  varying vec3 vColor;
+  varying float vAlpha;
+  varying float vEdge;
+
+  float easeOut(float value) {
+    return 1.0 - pow(1.0 - value, 3.0);
+  }
+
+  void main() {
+    float revealStart = aRandom * .26;
+    float reveal = smoothstep(revealStart, min(1.0, revealStart + .7), uReveal);
+    vec3 p = mix(aOrigin, position, easeOut(reveal));
+    float time = uTime * (.34 + uMotion * 1.35);
+
+    float reliefZ = (aLuma - .43) * uDepth * 1.22 + aEdge * .11 * uDepth;
+    float waveZ = (
+      sin(position.x * 2.35 + time + aRandom * 2.0) *
+      cos(position.y * 2.7 - time * .72)
+    ) * uDepth * .3;
+    float dustZ = (aRandom - .5) * uDepth * 2.15;
+    p.z += reliefZ * uModes.x + waveZ * uModes.y + dustZ * uModes.z;
+
+    float breathe = sin(time * 1.25 + position.y * 2.4 + aRandom * 4.0) * uMotion;
+    p.z += breathe * (.018 + uModes.y * .07 + uModes.z * .11);
+    p.x += sin(time * .54 + position.y * 2.9 + aRandom * 5.0) * uMotion * .013;
+    p.y += cos(time * .47 + position.x * 2.4 + aRandom * 4.0) * uMotion * .011;
+
+    p += aScatter * uScatter * (.42 + aRandom * .8);
+
+    float cursorDistance = distance(position.xy, uPointer * 2.35);
+    float cursorField = exp(-cursorDistance * cursorDistance * 2.0);
+    p.z += cursorField * sin(time * 2.0 + aRandom * 7.0) * .09 * uMotion;
+
+    vec4 viewPosition = modelViewMatrix * vec4(p, 1.0);
+    gl_Position = projectionMatrix * viewPosition;
+    float perspective = 11.0 / max(1.0, -viewPosition.z);
+    gl_PointSize = uPointSize * (1.08 + aRandom * .58 + aEdge * .62) * uPixelRatio * perspective;
+
+    vColor = color;
+    vAlpha = aAlpha * (.48 + aRandom * .48);
+    vEdge = aEdge;
+  }
+`;
+
+const fragmentShader = /* glsl */ `
+  varying vec3 vColor;
+  varying float vAlpha;
+  varying float vEdge;
+
+  void main() {
+    float distanceToCenter = length(gl_PointCoord - .5);
+    if (distanceToCenter > .5) discard;
+    float core = smoothstep(.5, .06, distanceToCenter);
+    float halo = smoothstep(.5, .2, distanceToCenter);
+    vec3 lifted = pow(max(vColor, vec3(.004)), vec3(.82));
+    float luminance = dot(lifted, vec3(.2126, .7152, .0722));
+    vec3 saturated = mix(vec3(luminance), lifted, 1.32);
+    vec3 colorOut = mix(saturated, vec3(1.0, .96, .94), vEdge * .045);
+    gl_FragColor = vec4(colorOut, (core * .78 + halo * .22) * vAlpha);
+  }
+`;
+
+const material = new THREE.ShaderMaterial({
+  uniforms,
+  vertexShader,
+  fragmentShader,
+  transparent: true,
+  depthWrite: false,
+  vertexColors: true,
+  blending: THREE.AdditiveBlending,
+});
+
+function pseudo(index, salt) {
+  const value = Math.sin(index * 91.173 + salt * 47.771) * 43758.5453;
+  return value - Math.floor(value);
+}
+
+function loadImage(url) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("默认图像读取失败"));
+    image.src = url;
+  });
+}
+
+async function decodeFile(file) {
+  if ("createImageBitmap" in window) return createImageBitmap(file);
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    const url = URL.createObjectURL(file);
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("无法读取这张图片"));
+    };
+    image.src = url;
+  });
+}
+
+function getSourceSize(source) {
+  return {
+    width: source.naturalWidth || source.videoWidth || source.width,
+    height: source.naturalHeight || source.videoHeight || source.height,
+  };
+}
+
+function getSampleSize(width, height) {
+  const limit = isMobile() ? 14500 : 23500;
+  if (width * height <= limit) return { width, height };
+  const ratio = width / height;
+  let sampleWidth = Math.max(1, Math.floor(Math.sqrt(limit * ratio)));
+  let sampleHeight = Math.max(1, Math.floor(sampleWidth / ratio));
+  while (sampleWidth * sampleHeight > limit) sampleHeight -= 1;
+  return { width: sampleWidth, height: sampleHeight };
+}
+
+function drawPreview(source) {
+  const context = sourcePreview.getContext("2d");
+  const { width, height } = getSourceSize(source);
+  const scale = Math.max(sourcePreview.width / width, sourcePreview.height / height);
+  const drawWidth = width * scale;
+  const drawHeight = height * scale;
+  context.clearRect(0, 0, sourcePreview.width, sourcePreview.height);
+  context.fillStyle = "#171019";
+  context.fillRect(0, 0, sourcePreview.width, sourcePreview.height);
+  context.drawImage(source, (sourcePreview.width - drawWidth) / 2, (sourcePreview.height - drawHeight) / 2, drawWidth, drawHeight);
+}
+
+function sampleImage(source) {
+  const original = getSourceSize(source);
+  const sample = getSampleSize(original.width, original.height);
+  const sampler = document.createElement("canvas");
+  sampler.width = sample.width;
+  sampler.height = sample.height;
+  const context = sampler.getContext("2d", { willReadFrequently: true });
+  context.clearRect(0, 0, sample.width, sample.height);
+  context.drawImage(source, 0, 0, sample.width, sample.height);
+  return {
+    original,
+    sample,
+    pixels: context.getImageData(0, 0, sample.width, sample.height).data,
+  };
+}
+
+function getDarkThreshold(pixels, width, height) {
+  let total = 0;
+  let count = 0;
+  const edge = Math.max(2, Math.floor(Math.min(width, height) * 0.04));
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      if (x >= edge && x < width - edge && y >= edge && y < height - edge) continue;
+      const offset = (y * width + x) * 4;
+      total += Math.max(pixels[offset], pixels[offset + 1], pixels[offset + 2]);
+      count += 1;
+    }
+  }
+  const edgeAverage = total / Math.max(1, count);
+  return edgeAverage < 48 ? Math.min(72, edgeAverage + 26) : 0;
+}
+
+function isVisiblePixel(pixels, offset, threshold) {
+  const alpha = pixels[offset + 3] / 255;
+  if (alpha <= 0.06) return false;
+  if (threshold <= 0) return true;
+  const maxChannel = Math.max(pixels[offset], pixels[offset + 1], pixels[offset + 2]);
+  return maxChannel > threshold;
+}
+
+function buildParticles(source, name, custom = false) {
+  const { original, sample, pixels } = sampleImage(source);
+  let threshold = getDarkThreshold(pixels, sample.width, sample.height);
+  let visibleCount = 0;
+  for (let offset = 0; offset < pixels.length; offset += 4) {
+    if (isVisiblePixel(pixels, offset, threshold)) visibleCount += 1;
+  }
+  if (visibleCount < sample.width * sample.height * 0.08) {
+    threshold = 0;
+    visibleCount = 0;
+    for (let offset = 0; offset < pixels.length; offset += 4) {
+      if (isVisiblePixel(pixels, offset, threshold)) visibleCount += 1;
+    }
+  }
+  if (!visibleCount) throw new Error("图片完全透明，请选择包含可见内容的图片");
+
+  const positions = new Float32Array(visibleCount * 3);
+  const origins = new Float32Array(visibleCount * 3);
+  const scatter = new Float32Array(visibleCount * 3);
+  const colors = new Float32Array(visibleCount * 3);
+  const lumas = new Float32Array(visibleCount);
+  const randoms = new Float32Array(visibleCount);
+  const edges = new Float32Array(visibleCount);
+  const alphas = new Float32Array(visibleCount);
+
+  const maxWidth = 4.65;
+  const maxHeight = 4.15;
+  const worldScale = Math.min(maxWidth / sample.width, maxHeight / sample.height);
+  worldSize = { width: sample.width * worldScale, height: sample.height * worldScale };
+  let pointIndex = 0;
+
+  for (let y = 0; y < sample.height; y += 1) {
+    for (let x = 0; x < sample.width; x += 1) {
+      const offset = (y * sample.width + x) * 4;
+      if (!isVisiblePixel(pixels, offset, threshold)) continue;
+
+      const r = pixels[offset] / 255;
+      const g = pixels[offset + 1] / 255;
+      const b = pixels[offset + 2] / 255;
+      const alpha = pixels[offset + 3] / 255;
+      const luma = r * 0.2126 + g * 0.7152 + b * 0.0722;
+      const nextX = Math.min(sample.width - 1, x + 1);
+      const nextY = Math.min(sample.height - 1, y + 1);
+      const right = (y * sample.width + nextX) * 4;
+      const down = (nextY * sample.width + x) * 4;
+      const rightLuma = (pixels[right] * 0.2126 + pixels[right + 1] * 0.7152 + pixels[right + 2] * 0.0722) / 255;
+      const downLuma = (pixels[down] * 0.2126 + pixels[down + 1] * 0.7152 + pixels[down + 2] * 0.0722) / 255;
+      const edge = Math.min(1, (Math.abs(luma - rightLuma) + Math.abs(luma - downLuma)) * 3.1);
+      const arrayOffset = pointIndex * 3;
+
+      positions[arrayOffset] = (x - (sample.width - 1) / 2) * worldScale;
+      positions[arrayOffset + 1] = ((sample.height - 1) / 2 - y) * worldScale;
+      positions[arrayOffset + 2] = 0;
+
+      const angle = pseudo(pointIndex, 1) * Math.PI * 2;
+      const phi = Math.acos(2 * pseudo(pointIndex, 2) - 1);
+      const radius = 2.4 + pseudo(pointIndex, 3) * 3.2;
+      origins[arrayOffset] = Math.sin(phi) * Math.cos(angle) * radius;
+      origins[arrayOffset + 1] = Math.cos(phi) * radius;
+      origins[arrayOffset + 2] = Math.sin(phi) * Math.sin(angle) * radius;
+
+      const scatterAngle = pseudo(pointIndex, 5) * Math.PI * 2;
+      const scatterLift = pseudo(pointIndex, 6) * 2 - 1;
+      const scatterRadius = Math.sqrt(Math.max(0, 1 - scatterLift * scatterLift));
+      const scatterPower = 0.8 + pseudo(pointIndex, 7) * 1.8;
+      scatter[arrayOffset] = Math.cos(scatterAngle) * scatterRadius * scatterPower;
+      scatter[arrayOffset + 1] = scatterLift * scatterPower;
+      scatter[arrayOffset + 2] = Math.sin(scatterAngle) * scatterRadius * scatterPower;
+
+      colors[arrayOffset] = r;
+      colors[arrayOffset + 1] = g;
+      colors[arrayOffset + 2] = b;
+      lumas[pointIndex] = luma;
+      randoms[pointIndex] = pseudo(pointIndex, 4);
+      edges[pointIndex] = edge;
+      alphas[pointIndex] = Math.max(0.18, alpha);
+      pointIndex += 1;
+    }
+  }
+
+  // Frame visible pixels, so transparent margins do not shrink the artwork.
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (let index = 0; index < positions.length; index += 3) {
+    minX = Math.min(minX, positions[index]);
+    maxX = Math.max(maxX, positions[index]);
+    minY = Math.min(minY, positions[index + 1]);
+    maxY = Math.max(maxY, positions[index + 1]);
+  }
+  for (let index = 0; index < positions.length; index += 3) {
+    positions[index] -= (minX + maxX) / 2;
+    positions[index + 1] -= (minY + maxY) / 2;
+  }
+  worldSize = { width: Math.max(worldScale, maxX - minX), height: Math.max(worldScale, maxY - minY) };
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute("aOrigin", new THREE.BufferAttribute(origins, 3));
+  geometry.setAttribute("aScatter", new THREE.BufferAttribute(scatter, 3));
+  geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  geometry.setAttribute("aLuma", new THREE.BufferAttribute(lumas, 1));
+  geometry.setAttribute("aRandom", new THREE.BufferAttribute(randoms, 1));
+  geometry.setAttribute("aEdge", new THREE.BufferAttribute(edges, 1));
+  geometry.setAttribute("aAlpha", new THREE.BufferAttribute(alphas, 1));
+  geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 10);
+
+  if (points) {
+    particleRoot.remove(points);
+    points.geometry.dispose();
+  }
+
+  points = new THREE.Points(geometry, material);
+  points.frustumCulled = false;
+  particleRoot.add(points);
+  currentSource = source;
+
+  drawPreview(source);
+  sourceName.textContent = name;
+  sourceMeta.textContent = `${visibleCount.toLocaleString("zh-CN")} 个粒子`;
+  uniforms.uReveal.value = 0;
+  revealStartedAt = performance.now();
+  uniforms.uScatter.value = 0;
+  scattered = false;
+  scatterButton.classList.remove("active");
+  scatterButton.setAttribute("aria-pressed", "false");
+  scatterButton.setAttribute("aria-label", "散开粒子");
+  scatterButton.querySelector("span").textContent = "散开";
+  resize();
+  resetView(false);
+
+  gsap.fromTo(
+    particleRoot.scale,
+    { x: 0.84, y: 0.84, z: 0.84 },
+    { x: 1, y: 1, z: 1, duration: reducedMotion ? 0.01 : 1.8, ease: "power3.out" },
+  );
+
+  if (custom) enterFocusMode();
+}
+
+function enterFocusMode() {
+  customImageLoaded = true;
+  app.classList.add("has-custom");
+  resetView(false);
+}
+
+async function handleFile(file) {
+  if (!file) return;
+  if (!allowedTypes.has(file.type)) {
+    showToast("请选择 JPG、PNG、WEBP 或 AVIF 图片");
+    return;
+  }
+  if (file.size > 30 * 1024 * 1024) {
+    showToast("图片需要小于 30 MB");
+    return;
+  }
+
+  processing.classList.add("visible");
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+
+  try {
+    const image = await decodeFile(file);
+    const name = file.name.replace(/\.[^.]+$/, "").slice(0, 64) || "未命名图像";
+    buildParticles(image, name, true);
+    showToast("图像已经进入空间");
+  } catch (error) {
+    showToast(error.message || "图片处理失败，请换一张重试");
+  } finally {
+    processing.classList.remove("visible");
+    fileInput.value = "";
+  }
+}
+
+function openFilePicker() {
+  fileInput.click();
+}
+
+function showToast(message) {
+  toast.textContent = message;
+  toast.classList.add("visible");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("visible"), 1800);
+}
+
+function setMode(mode) {
+  const modes = {
+    relief: { x: 1, y: 0, z: 0 },
+    wave: { x: 0, y: 1, z: 0 },
+    dust: { x: 0, y: 0, z: 1 },
+  };
+  if (!modes[mode]) return;
+
+  document.querySelectorAll(".mode-button").forEach((button) => {
+    const active = button.dataset.mode === mode;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+
+  gsap.to(uniforms.uModes.value, {
+    ...modes[mode],
+    duration: reducedMotion ? 0.01 : 0.8,
+    ease: "power2.inOut",
+  });
+}
+
+function toggleParameters(force) {
+  panelOpen = typeof force === "boolean" ? force : !panelOpen;
+  if (!panelOpen && parameterPanel.contains(document.activeElement)) tuneButton.focus();
+  app.classList.toggle("parameters-open", panelOpen);
+  tuneButton.classList.toggle("active", panelOpen);
+  tuneButton.setAttribute("aria-expanded", String(panelOpen));
+  parameterPanel.classList.toggle("open", panelOpen);
+  parameterPanel.setAttribute("aria-hidden", String(!panelOpen));
+  parameterPanel.inert = !panelOpen;
+  if (panelOpen && !reducedMotion) gsap.fromTo(parameterPanel, { opacity: 0 }, { opacity: 1, duration: 0.2 });
+}
+
+function toggleScatter() {
+  scattered = !scattered;
+  scatterButton.classList.toggle("active", scattered);
+  scatterButton.setAttribute("aria-pressed", String(scattered));
+  scatterButton.setAttribute("aria-label", scattered ? "聚合粒子" : "散开粒子");
+  scatterButton.querySelector("span").textContent = scattered ? "聚合" : "散开";
+  gsap.to(uniforms.uScatter, {
+    value: scattered ? 1 : 0,
+    duration: reducedMotion ? 0.01 : scattered ? 1.15 : 0.9,
+    ease: scattered ? "power2.out" : "power3.inOut",
+  });
+}
+
+function replacePauseIcon() {
+  pauseButton.innerHTML = `<i data-lucide="${paused ? "play" : "pause"}" aria-hidden="true"></i><span>${paused ? "继续" : "暂停"}</span>`;
+  createIcons({ icons });
+}
+
+function togglePause() {
+  paused = !paused;
+  pauseButton.classList.toggle("active", paused);
+  pauseButton.setAttribute("aria-pressed", String(paused));
+  pauseButton.setAttribute("aria-label", paused ? "继续动画" : "暂停动画");
+  replacePauseIcon();
+}
+
+function resetView(showMessage = true) {
+  rotationTarget = { x: -0.04, y: 0.02 };
+  zoomTarget = fittedZoom;
+  gsap.set(canvasHint, { clearProps: "opacity,visibility" });
+  if (showMessage) showToast("视角已复位");
+}
+
+function updateRange(range, output, value, min, max) {
+  output.textContent = Number(value).toFixed(2);
+  range.style.setProperty("--fill", `${((value - min) / (max - min)) * 100}%`);
+}
+
+function onPointerDown(event) {
+  if (event.target.closest("button, input, .parameter-panel, .control-dock, .source-chip")) return;
+  dragActive = true;
+  dragMoved = false;
+  lastPointer = { x: event.clientX, y: event.clientY };
+  canvas.setPointerCapture?.(event.pointerId);
+}
+
+function onPointerMove(event) {
+  const rect = canvas.getBoundingClientRect();
+  pointer.set(
+    ((event.clientX - rect.left) / rect.width) * 2 - 1,
+    -(((event.clientY - rect.top) / rect.height) * 2 - 1),
+  );
+  if (!dragActive) return;
+
+  const dx = event.clientX - lastPointer.x;
+  const dy = event.clientY - lastPointer.y;
+  rotationTarget.y += dx * 0.0064;
+  rotationTarget.x += dy * 0.0048;
+  rotationTarget.x = THREE.MathUtils.clamp(rotationTarget.x, -1.0, 1.0);
+  lastPointer = { x: event.clientX, y: event.clientY };
+
+  if (Math.abs(dx) + Math.abs(dy) > 2) {
+    dragMoved = true;
+    gsap.to(canvasHint, { autoAlpha: 0, duration: 0.25 });
+  }
+}
+
+function onPointerUp(event) {
+  dragActive = false;
+  canvas.releasePointerCapture?.(event.pointerId);
+}
+
+function onWheel(event) {
+  event.preventDefault();
+  zoomTarget = THREE.MathUtils.clamp(zoomTarget + event.deltaY * fittedZoom * 0.0003, fittedZoom * 0.55, fittedZoom * 1.8);
+}
+
+function resize() {
+  const rect = stage.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return;
+  const pixelRatio = Math.min(devicePixelRatio, isMobile() ? 1.25 : 1.6);
+  renderer.setPixelRatio(pixelRatio);
+  renderer.setSize(rect.width, rect.height, false);
+  composer.setPixelRatio(pixelRatio);
+  composer.setSize(rect.width, rect.height);
+  camera.aspect = rect.width / rect.height;
+  camera.updateProjectionMatrix();
+  const halfFov = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const previousFit = fittedZoom;
+  fittedZoom = Math.max(worldSize.height / (2 * halfFov), worldSize.width / (2 * halfFov * camera.aspect)) * 1.2 + 0.9;
+  zoomTarget = fittedZoom * (zoomTarget / previousFit);
+  camera.position.z = zoomTarget;
+  uniforms.uPixelRatio.value = pixelRatio;
+  bloom.strength = isMobile() ? 0.34 : 0.48;
+}
+
+function playIntro() {
+  if (reducedMotion) return;
+  gsap.from(".identity, .hero h1, .hero p, .primary-button, .control-dock, .source-chip", {
+    opacity: 0, y: 6, stagger: 0.05, duration: 0.6, ease: "power2.out", clearProps: "transform,opacity",
+  });
+}
+
+[chooseButton, replaceButton].forEach((button) => button.addEventListener("click", openFilePicker));
+fileInput.addEventListener("change", () => handleFile(fileInput.files?.[0]));
+resetButton.addEventListener("click", () => resetView());
+tuneButton.addEventListener("click", () => toggleParameters());
+scatterButton.addEventListener("click", toggleScatter);
+pauseButton.addEventListener("click", togglePause);
+
+document.querySelectorAll(".mode-button").forEach((button) => {
+  button.addEventListener("click", () => setMode(button.dataset.mode));
+});
+
+depthRange.addEventListener("input", () => {
+  const value = Number(depthRange.value);
+  updateRange(depthRange, depthOutput, value, 0, 2);
+  gsap.to(uniforms.uDepth, { value, duration: 0.24, ease: "power1.out" });
+});
+
+motionRange.addEventListener("input", () => {
+  const value = Number(motionRange.value);
+  updateRange(motionRange, motionOutput, value, 0, 1);
+  gsap.to(uniforms.uMotion, { value, duration: 0.24, ease: "power1.out" });
+});
+
+sizeRange.addEventListener("input", () => {
+  const value = Number(sizeRange.value);
+  updateRange(sizeRange, sizeOutput, value, 0.55, 1.8);
+  gsap.to(uniforms.uPointSize, { value, duration: 0.24, ease: "power1.out" });
+});
+
+stage.addEventListener("pointerdown", onPointerDown);
+stage.addEventListener("pointermove", onPointerMove);
+stage.addEventListener("pointerup", onPointerUp);
+stage.addEventListener("pointercancel", onPointerUp);
+canvas.addEventListener("wheel", onWheel, { passive: false });
+
+document.addEventListener("pointerdown", (event) => {
+  if (panelOpen && !parameterPanel.contains(event.target) && !tuneButton.contains(event.target)) toggleParameters(false);
+});
+
+["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
+  window.addEventListener(eventName, (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  });
+});
+
+window.addEventListener("dragenter", (event) => {
+  if (!Array.from(event.dataTransfer?.types || []).includes("Files")) return;
+  dragDepth += 1;
+  app.classList.add("drag-active");
+});
+
+window.addEventListener("dragleave", () => {
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (dragDepth === 0) app.classList.remove("drag-active");
+});
+
+window.addEventListener("drop", (event) => {
+  dragDepth = 0;
+  app.classList.remove("drag-active");
+  handleFile(event.dataTransfer?.files?.[0]);
+});
+
+window.addEventListener("keydown", (event) => {
+  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "o") {
+    event.preventDefault();
+    openFilePicker();
+  }
+  if (event.key === "Escape") {
+    if (panelOpen) toggleParameters(false);
+    else resetView();
+  }
+  if (event.target === canvas && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
+    event.preventDefault();
+    if (event.key === "ArrowLeft") rotationTarget.y -= 0.12;
+    if (event.key === "ArrowRight") rotationTarget.y += 0.12;
+    if (event.key === "ArrowUp") rotationTarget.x = Math.max(-1, rotationTarget.x - 0.12);
+    if (event.key === "ArrowDown") rotationTarget.x = Math.min(1, rotationTarget.x + 0.12);
+  }
+  if (event.code === "Space" && !event.repeat && !event.target.closest("button, input, select, textarea, a, [contenteditable='true']")) {
+    event.preventDefault();
+    togglePause();
+  }
+});
+
+window.addEventListener("resize", resize);
+new ResizeObserver(resize).observe(stage);
+
+updateRange(depthRange, depthOutput, Number(depthRange.value), 0, 2);
+updateRange(motionRange, motionOutput, Number(motionRange.value), 0, 1);
+updateRange(sizeRange, sizeOutput, Number(sizeRange.value), 0.55, 1.8);
+resize();
+playIntro();
+
+loadImage("/flower-signal.png")
+  .then((image) => buildParticles(image, "Flower signal"))
+  .catch((error) => showToast(error.message));
+
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const rawDelta = clock.getDelta();
+  const delta = Math.min(rawDelta, 0.05);
+  const transitionDelta = Math.min(rawDelta, 0.22);
+  if (!paused) elapsed += delta * (reducedMotion ? 0.08 : 1);
+
+  uniforms.uTime.value = elapsed;
+  if (uniforms.uReveal.value < 1) {
+    const revealProgress = reducedMotion ? 1 : Math.min(1, (performance.now() - revealStartedAt) / 1250);
+    uniforms.uReveal.value = 1 - Math.pow(1 - revealProgress, 3);
+  }
+  particleRoot.position.y = THREE.MathUtils.damp(particleRoot.position.y, rootYTarget, 3.4, transitionDelta);
+  particleRoot.rotation.x = THREE.MathUtils.damp(particleRoot.rotation.x, rotationTarget.x, 5, transitionDelta);
+  particleRoot.rotation.y = THREE.MathUtils.damp(particleRoot.rotation.y, rotationTarget.y, 5, transitionDelta);
+
+  if (!paused && !dragActive) {
+    const idleTilt = Math.sin(elapsed * 0.2) * 0.022;
+    particleRoot.rotation.z = THREE.MathUtils.damp(particleRoot.rotation.z, idleTilt, 1.5, delta);
+  }
+
+  camera.position.z = THREE.MathUtils.damp(camera.position.z, zoomTarget, 4, transitionDelta);
+  camera.position.x = THREE.MathUtils.damp(camera.position.x, pointer.x * 0.045, 2, transitionDelta);
+  camera.position.y = THREE.MathUtils.damp(camera.position.y, pointer.y * 0.028, 2, transitionDelta);
+  camera.lookAt(0, 0, 0);
+  composer.render();
+}
+
+animate();
