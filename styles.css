@@ -57,6 +57,13 @@ button svg { width: 16px; height: 16px; flex-shrink: 0; stroke-width: 1.5; }
 .source-replace svg { width: 13px; height: 13px; }
 .controls-rail { grid-area: 1 / 3; display: flex; flex-direction: column; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line) transparent; padding: 4px 8px; }
 .control-dock { width: 100%; margin-block: auto; padding-block: 32px; }
+.preset-control { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; margin-bottom: 28px; padding-bottom: 20px; border-bottom: 1px solid var(--line); }
+.preset-control label { grid-column: 1 / -1; margin: 0 12px 5px; color: var(--quiet); font-size: 10px; letter-spacing: .12em; }
+.preset-control select { min-width: 0; height: 38px; padding: 0 25px 0 11px; border: 1px solid var(--line); border-radius: 3px; color: var(--text); background: var(--surface); font: 10px var(--font); cursor: pointer; }
+.preset-actions { display: flex; }
+.preset-actions button { display: grid; place-items: center; width: 32px; height: 38px; padding: 0; }
+.preset-actions button svg { width: 13px; height: 13px; }
+.preset-actions button:disabled { opacity: .25; cursor: default; }
 .mode-accordion, .dock-tools { display: flex; flex-direction: column; gap: 3px; }
 .group-label { margin: 0 12px 12px; color: var(--quiet); font-size: 10px; letter-spacing: .12em; }
 .mode-button, .dock-button { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 42px; padding: 0 12px; border-radius: 3px; text-align: left; font-size: 11px; white-space: nowrap; }
@@ -75,6 +82,15 @@ button svg { width: 16px; height: 16px; flex-shrink: 0; stroke-width: 1.5; }
 .capture-mode .info-rail, .capture-mode .source-chip, .capture-mode .controls-rail { opacity: 0; visibility: hidden; pointer-events: none; }
 .capture-mode .capture-actions { opacity: 1; visibility: visible; transform: none; }
 .capture-mode .stage { grid-area: 1 / 1 / 2 / -1; }
+.preset-dialog { width: min(340px, calc(100vw - 32px)); padding: 0; border: 1px solid #ffffff18; border-radius: 4px; color: var(--text); background: #1a1918; box-shadow: 0 30px 90px #0009; }
+.preset-dialog::backdrop { background: #0c0b0ab8; backdrop-filter: blur(5px); }
+.preset-dialog form { display: grid; gap: 14px; padding: 28px; }
+.dialog-kicker { color: var(--accent); font-size: 9px; letter-spacing: .14em; }
+.preset-dialog label { color: var(--text); font-size: 15px; font-weight: 400; }
+.preset-dialog input { width: 100%; height: 42px; padding: 0 10px; border: 0; border-bottom: 1px solid #ffffff30; border-radius: 0; color: var(--text); background: transparent; font-size: 12px; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 4px; margin-top: 8px; }
+.dialog-actions button { min-width: 64px; height: 38px; padding: 0 12px; border-radius: 2px; font-size: 10px; }
+.dialog-actions button[type="submit"] { color: #181514; background: var(--accent); }
 .parameter-panel { display: none; gap: 16px; padding: 16px 10px 22px; }
 .parameter-panel.open { display: grid; }
 .range-control { display: block; min-width: 0; }
@@ -124,11 +140,17 @@ input[type="range"]::-moz-range-thumb { width: 8px; height: 8px; border: 0; bord
   .control-dock { padding-block: 4px; }
   .mode-button, .dock-button { justify-content: center; min-height: 44px; padding: 0; }
   .mode-button span, .dock-button span, .group-label, .canvas-hint { display: none; }
+  .preset-control { display: flex; flex-direction: column; align-items: stretch; margin-bottom: 12px; padding-bottom: 12px; }
+  .preset-control label, .preset-actions { display: none; }
+  .preset-control select { width: 44px; height: 44px; padding: 0 2px; appearance: none; color: var(--text); text-align: center; text-align-last: center; background: var(--surface); font-size: 9px; }
+  .preset-control select:focus { width: 140px; padding-inline: 8px; text-align: left; }
   .mode-accordion, .dock-tools { gap: 0; }
   .dock-tools { margin-top: 12px; padding-top: 12px; }
   .experience.parameters-open { grid-template-columns: minmax(0, 1fr) 140px; }
   .parameters-open .mode-button, .parameters-open .dock-button { justify-content: flex-start; padding-inline: 12px; }
   .parameters-open .mode-button span, .parameters-open .dock-button span { display: inline; }
+  .parameters-open .preset-control select { width: 136px; color: var(--text); padding-inline: 8px; }
+  .parameters-open .preset-actions { display: flex; }
   .source-replace { width: 44px; flex-shrink: 0; }
   .processing, .toast { bottom: calc(var(--edge) + 68px); }
   .capture-mode .capture-actions { top: 12px; right: 12px; }

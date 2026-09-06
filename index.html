@@ -37,6 +37,20 @@
     </section>
     <aside class="controls-rail" aria-label="创作控制">
       <section class="control-dock" aria-label="粒子控制">
+        <div class="preset-control">
+          <label for="preset-select">气质</label>
+          <select id="preset-select" aria-label="选择气质预设">
+            <option value="reveal">显影</option>
+            <option value="tide">潮汐</option>
+            <option value="drift">游离</option>
+            <option value="ember">余烬</option>
+            <option value="manual" disabled>当前微调</option>
+          </select>
+          <div class="preset-actions">
+            <button id="save-preset" type="button" aria-label="保存当前气质" title="保存当前气质"><i data-lucide="bookmark-plus" aria-hidden="true"></i></button>
+            <button id="delete-preset" type="button" aria-label="删除自定义气质" title="删除自定义气质" disabled><i data-lucide="trash-2" aria-hidden="true"></i></button>
+          </div>
+        </div>
         <div class="mode-accordion" role="group" aria-label="空间模式">
           <span class="group-label">形态</span>
           <button class="mode-button active" type="button" data-mode="relief" aria-label="浮雕" aria-pressed="true"><i data-lucide="layers-3" aria-hidden="true"></i><span>浮雕</span></button>
@@ -63,6 +77,17 @@
       <button id="export-button" type="button"><i data-lucide="download" aria-hidden="true"></i><span>导出 2× PNG</span></button>
       <button id="capture-exit" type="button" aria-label="退出定格模式"><i data-lucide="x" aria-hidden="true"></i></button>
     </div>
+    <dialog class="preset-dialog" id="preset-dialog">
+      <form id="preset-form" method="dialog">
+        <span class="dialog-kicker">保存气质</span>
+        <label for="preset-name">为这一刻命名</label>
+        <input id="preset-name" name="preset-name" maxlength="18" autocomplete="off" required />
+        <div class="dialog-actions">
+          <button value="cancel" type="button" id="preset-cancel">取消</button>
+          <button value="save" type="submit">保存</button>
+        </div>
+      </form>
+    </dialog>
     <div class="drop-layer" id="drop-layer" aria-hidden="true"><i data-lucide="image-plus" aria-hidden="true"></i><h2>让这张图，成为光。</h2><p>松手导入 · JPG / PNG / WEBP / AVIF</p></div>
     <div class="processing" id="processing" role="status" aria-live="polite"><span></span><b>正在重建图像</b></div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>

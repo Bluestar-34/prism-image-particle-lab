@@ -7,6 +7,7 @@ import {
   Blend,
   createIcons,
   Aperture,
+  BookmarkPlus,
   Download,
   ImagePlus,
   Layers3,
@@ -17,12 +18,14 @@ import {
   RotateCcw,
   SlidersHorizontal,
   Sparkles,
+  Trash2,
   Waves,
   X,
 } from "lucide";
 
 const icons = {
   Aperture,
+  BookmarkPlus,
   Blend,
   Download,
   ImagePlus,
@@ -34,6 +37,7 @@ const icons = {
   RotateCcw,
   SlidersHorizontal,
   Sparkles,
+  Trash2,
   Waves,
   X,
 };
@@ -66,6 +70,13 @@ const sizeRange = document.querySelector("#size-range");
 const depthOutput = document.querySelector("#depth-output");
 const motionOutput = document.querySelector("#motion-output");
 const sizeOutput = document.querySelector("#size-output");
+const presetSelect = document.querySelector("#preset-select");
+const savePresetButton = document.querySelector("#save-preset");
+const deletePresetButton = document.querySelector("#delete-preset");
+const presetDialog = document.querySelector("#preset-dialog");
+const presetForm = document.querySelector("#preset-form");
+const presetName = document.querySelector("#preset-name");
+const presetCancel = document.querySelector("#preset-cancel");
 
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const allowedTypes = new Set(["image/png", "image/jpeg", "image/webp", "image/avif"]);
@@ -91,6 +102,16 @@ let zoomTarget = isMobile() ? 7.2 : 6.55;
 let rootYTarget = 0;
 let worldSize = { width: 4.65, height: 4.15 };
 let fittedZoom = zoomTarget;
+const PRESET_KEY = "prism.presets.v1";
+const LAST_PRESET_KEY = "prism.lastPreset.v1";
+const builtInPresets = {
+  reveal: { label: "显影", mode: "relief", depth: 1.2, motion: 0.26, size: 1.1 },
+  tide: { label: "潮汐", mode: "wave", depth: 1.05, motion: 0.52, size: 1.0 },
+  drift: { label: "游离", mode: "dust", depth: 1.4, motion: 0.36, size: 0.86 },
+  ember: { label: "余烬", mode: "relief", depth: 1.65, motion: 0.12, size: 0.8 },
+};
+let customPresets = loadCustomPresets();
+let applyingPreset = false;
 
 const renderer = new THREE.WebGLRenderer({
   canvas,
@@ -502,6 +523,111 @@ function showToast(message) {
   toastTimer = setTimeout(() => toast.classList.remove("visible"), 1800);
 }
 
+function loadCustomPresets() {
+  try {
+    const value = JSON.parse(localStorage.getItem(PRESET_KEY) || "[]");
+    return Array.isArray(value) ? value.filter((item) => item && typeof item.id === "string" && typeof item.label === "string").slice(0, 12) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCustomPresets() {
+  try {
+    localStorage.setItem(PRESET_KEY, JSON.stringify(customPresets));
+  } catch {
+    showToast("浏览器未允许保存气质");
+  }
+}
+
+function renderPresetOptions(selectedValue) {
+  presetSelect.querySelectorAll("optgroup").forEach((group) => group.remove());
+  if (customPresets.length) {
+    const group = document.createElement("optgroup");
+    group.label = "我的气质";
+    customPresets.forEach((preset) => {
+      const option = document.createElement("option");
+      option.value = preset.id;
+      option.textContent = preset.label;
+      group.append(option);
+    });
+    presetSelect.append(group);
+  }
+  if ([...presetSelect.options].some((option) => option.value === selectedValue)) presetSelect.value = selectedValue;
+  deletePresetButton.disabled = !customPresets.some((preset) => preset.id === presetSelect.value);
+}
+
+function currentPresetSnapshot(label, id = `user-${Date.now()}`) {
+  return {
+    id,
+    label,
+    mode: document.querySelector(".mode-button.active")?.dataset.mode || "relief",
+    depth: Number(depthRange.value),
+    motion: Number(motionRange.value),
+    size: Number(sizeRange.value),
+  };
+}
+
+function markPresetManual() {
+  if (applyingPreset) return;
+  presetSelect.value = "manual";
+  deletePresetButton.disabled = true;
+  try { localStorage.setItem(LAST_PRESET_KEY, "manual"); } catch {}
+}
+
+function applyPreset(id, announce = true) {
+  const preset = builtInPresets[id] || customPresets.find((item) => item.id === id);
+  if (!preset) return;
+  applyingPreset = true;
+  setMode(preset.mode);
+  const values = [
+    [depthRange, depthOutput, preset.depth, 0, 2, uniforms.uDepth],
+    [motionRange, motionOutput, preset.motion, 0, 1, uniforms.uMotion],
+    [sizeRange, sizeOutput, preset.size, 0.55, 1.8, uniforms.uPointSize],
+  ];
+  values.forEach(([range, output, value, min, max, uniform]) => {
+    range.value = value;
+    updateRange(range, output, value, min, max);
+    gsap.to(uniform, { value, duration: reducedMotion ? 0.01 : 0.72, ease: "power2.inOut" });
+  });
+  presetSelect.value = id;
+  deletePresetButton.disabled = !customPresets.some((item) => item.id === id);
+  applyingPreset = false;
+  try { localStorage.setItem(LAST_PRESET_KEY, id); } catch {}
+  if (announce) showToast(`已切换为「${preset.label}」`);
+}
+
+function openPresetDialog() {
+  if (customPresets.length >= 12) {
+    showToast("最多保存 12 个气质");
+    return;
+  }
+  presetName.value = `我的气质 ${String(customPresets.length + 1).padStart(2, "0")}`;
+  presetDialog.showModal();
+  requestAnimationFrame(() => presetName.select());
+}
+
+function saveCurrentPreset(labelValue) {
+  const label = labelValue.trim().slice(0, 18);
+  if (!label) return;
+  const preset = currentPresetSnapshot(label);
+  customPresets.push(preset);
+  saveCustomPresets();
+  renderPresetOptions(preset.id);
+  try { localStorage.setItem(LAST_PRESET_KEY, preset.id); } catch {}
+  showToast(`已保存「${label}」`);
+}
+
+function deleteCurrentPreset() {
+  const index = customPresets.findIndex((preset) => preset.id === presetSelect.value);
+  if (index < 0) return;
+  const [removed] = customPresets.splice(index, 1);
+  saveCustomPresets();
+  renderPresetOptions("reveal");
+  applyPreset("reveal", false);
+  showToast(`已删除「${removed.label}」`);
+}
+
 function setMode(mode) {
   const modes = {
     relief: { x: 1, y: 0, z: 0 },
@@ -521,6 +647,7 @@ function setMode(mode) {
     duration: reducedMotion ? 0.01 : 0.8,
     ease: "power2.inOut",
   });
+  markPresetManual();
 }
 
 function toggleParameters(force) {
@@ -577,8 +704,9 @@ function setCaptureMode(active) {
 
 function exportName() {
   const source = sourceName.textContent.trim().toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, "-").replace(/^-|-$/g, "") || "image";
+  const preset = presetSelect.options[presetSelect.selectedIndex]?.textContent.trim().toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, "-") || "custom";
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  return `prism-${source}-${stamp}.png`;
+  return `prism-${source}-${preset}-${stamp}.png`;
 }
 
 async function exportPng() {
@@ -710,22 +838,38 @@ document.querySelectorAll(".mode-button").forEach((button) => {
   button.addEventListener("click", () => setMode(button.dataset.mode));
 });
 
+presetSelect.addEventListener("change", () => applyPreset(presetSelect.value));
+savePresetButton.addEventListener("click", openPresetDialog);
+deletePresetButton.addEventListener("click", deleteCurrentPreset);
+presetCancel.addEventListener("click", () => presetDialog.close("cancel"));
+presetForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  saveCurrentPreset(presetName.value);
+  presetDialog.close("save");
+});
+presetDialog.addEventListener("click", (event) => {
+  if (event.target === presetDialog) presetDialog.close("cancel");
+});
+
 depthRange.addEventListener("input", () => {
   const value = Number(depthRange.value);
   updateRange(depthRange, depthOutput, value, 0, 2);
   gsap.to(uniforms.uDepth, { value, duration: 0.24, ease: "power1.out" });
+  markPresetManual();
 });
 
 motionRange.addEventListener("input", () => {
   const value = Number(motionRange.value);
   updateRange(motionRange, motionOutput, value, 0, 1);
   gsap.to(uniforms.uMotion, { value, duration: 0.24, ease: "power1.out" });
+  markPresetManual();
 });
 
 sizeRange.addEventListener("input", () => {
   const value = Number(sizeRange.value);
   updateRange(sizeRange, sizeOutput, value, 0.55, 1.8);
   gsap.to(uniforms.uPointSize, { value, duration: 0.24, ease: "power1.out" });
+  markPresetManual();
 });
 
 stage.addEventListener("pointerdown", onPointerDown);
@@ -763,6 +907,7 @@ window.addEventListener("drop", (event) => {
 });
 
 window.addEventListener("keydown", (event) => {
+  if (presetDialog.open) return;
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "o") {
     event.preventDefault();
     openFilePicker();
@@ -791,6 +936,8 @@ new ResizeObserver(resize).observe(stage);
 updateRange(depthRange, depthOutput, Number(depthRange.value), 0, 2);
 updateRange(motionRange, motionOutput, Number(motionRange.value), 0, 1);
 updateRange(sizeRange, sizeOutput, Number(sizeRange.value), 0.55, 1.8);
+renderPresetOptions(localStorage.getItem(LAST_PRESET_KEY) || "reveal");
+applyPreset(presetSelect.value === "manual" ? "reveal" : presetSelect.value, false);
 resize();
 playIntro();
 

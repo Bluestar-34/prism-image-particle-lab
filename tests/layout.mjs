@@ -135,11 +135,24 @@ try {
   check('Escape reset changes rotated render', reset !== rotated);
   await page.locator('[data-mode="dust"]').click(); await delay(1000);
   check('mode change changes actual canvas render', reset !== await canvasHash());
+  await page.locator('#preset-select').selectOption('tide');
+  check('built-in mood applies mode and all parameters', await attr('[data-mode="wave"]', 'aria-pressed') === 'true' && Number(await page.locator('#depth-range').inputValue()) === 1.05 && Number(await page.locator('#motion-range').inputValue()) === .52 && Number(await page.locator('#size-range').inputValue()) === 1);
+  await page.locator('#depth-range').evaluate(el => { el.value = '1.33'; el.dispatchEvent(new Event('input', { bubbles: true })); });
+  check('manual adjustment marks mood as current tweak', await page.locator('#preset-select').inputValue() === 'manual');
+  await page.locator('#save-preset').click();
+  await page.locator('#preset-name').fill('测试气质');
+  await page.locator('#preset-form button[type="submit"]').click();
+  check('custom mood saves and becomes selected', (await page.locator('#preset-select option').allTextContents()).includes('测试气质') && !(await page.locator('#delete-preset').isDisabled()));
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForFunction(() => document.querySelector('#source-meta')?.textContent.includes('个粒子'));
+  check('custom mood persists after reload', (await page.locator('#preset-select option').allTextContents()).includes('测试气质') && await page.locator('#preset-select').inputValue() !== 'manual');
+  await page.locator('#delete-preset').click();
+  check('custom mood deletes and returns to reveal', !(await page.locator('#preset-select option').allTextContents()).includes('测试气质') && await page.locator('#preset-select').inputValue() === 'reveal');
   const scatteredBefore = await canvasHash();
   await page.locator('#scatter-button').click(); await delay(1300);
   check('scatter changes actual canvas render', scatteredBefore !== await canvasHash());
   await page.locator('#scatter-button').click();
-  await page.locator('#pause-button').click();
+  if (await attr('#pause-button', 'aria-pressed') === 'true') await page.locator('#pause-button').click();
 
   await page.locator('#capture-button').click();
   await delay(700);
