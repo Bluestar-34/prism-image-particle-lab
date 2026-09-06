@@ -1,7 +1,9 @@
 {
   "name": "prism-image-particle-lab",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.2.0",
+  "license": "MIT",
+  "description": "Turn any image into a rotatable, breathing 3D particle field in the browser.",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
