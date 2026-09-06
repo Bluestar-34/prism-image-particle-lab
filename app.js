@@ -100,6 +100,22 @@ const presetName = document.querySelector("#preset-name");
 const presetCancel = document.querySelector("#preset-cancel");
 const qualitySelect = document.querySelector("#quality-select");
 const qualityStatus = document.querySelector("#quality-status");
+const moodList = document.querySelector("#mood-list");
+const plateCaption = document.querySelector("#plate-caption");
+const tabMoods = document.querySelector("#tab-moods");
+const tabWorks = document.querySelector("#tab-works");
+const moodPane = document.querySelector("#mood-pane");
+const worksPane = document.querySelector("#works-pane");
+const worksGrid = document.querySelector("#works-grid");
+const saveWorkButton = document.querySelector("#save-work");
+const collectButton = document.querySelector("#collect-button");
+const printDialog = document.querySelector("#print-dialog");
+const printImage = document.querySelector("#print-image");
+const printTitle = document.querySelector("#print-title");
+const printTime = document.querySelector("#print-time");
+const printApply = document.querySelector("#print-apply");
+const printDelete = document.querySelector("#print-delete");
+const printClose = document.querySelector("#print-close");
 
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const allowedTypes = new Set(["image/png", "image/jpeg", "image/webp", "image/avif"]);
@@ -136,6 +152,8 @@ let worldSize = { width: 4.65, height: 4.15 };
 let fittedZoom = zoomTarget;
 const PRESET_KEY = "prism.presets.v1";
 const LAST_PRESET_KEY = "prism.lastPreset.v1";
+const WORKS_DB = "prism.works.v1";
+const MAX_WORKS = 18;
 const builtInPresets = {
   reveal: { label: "显影", mode: "relief", depth: 1.2, motion: 0.26, size: 1.1, bloom: 0.48, warmth: 0.08, sat: 1.28 },
   tide: { label: "潮汐", mode: "wave", depth: 1.05, motion: 0.52, size: 1.0, bloom: 0.44, warmth: -0.12, sat: 1.36 },
@@ -159,6 +177,8 @@ let qualityWindowFrames = 0;
 let qualityWindowSeconds = 0;
 let qualityRecoveryWindows = 0;
 let qualityChangePending = false;
+let works = [];
+let activeWorkId = null;
 
 const renderer = new THREE.WebGLRenderer({
   canvas,
@@ -650,6 +670,27 @@ function renderPresetOptions(selectedValue) {
   const allowed = [...presetSelect.options].some((option) => option.value === selectedValue);
   presetSelect.value = allowed ? selectedValue : "reveal";
   deletePresetButton.disabled = !customPresets.some((preset) => preset.id === presetSelect.value);
+  renderMoodList();
+}
+
+function presetLabel(id) {
+  if (id === "manual") return "当前微调";
+  return builtInPresets[id]?.label || customPresets.find((item) => item.id === id)?.label || "未命名";
+}
+
+function renderMoodList() {
+  if (!moodList) return;
+  const selected = presetSelect.value;
+  const items = [
+    ...Object.entries(builtInPresets).map(([id, preset]) => ({ id, label: preset.label })),
+    ...customPresets.map((preset) => ({ id: preset.id, label: preset.label })),
+  ];
+  if (selected === "manual") items.push({ id: "manual", label: "当前微调" });
+  moodList.innerHTML = items.map((item, index) => {
+    const active = item.id === selected ? " active" : "";
+    return `<button type="button" class="mood-plate${active}" data-preset="${item.id}" aria-pressed="${item.id === selected}"><em>${String(index + 1).padStart(2, "0")}</em><span>${item.label}</span></button>`;
+  }).join("");
+  if (plateCaption) plateCaption.textContent = `PLATE ${String(Math.max(1, items.findIndex((item) => item.id === selected) + 1)).padStart(2, "0")} · ${presetLabel(selected)}`;
 }
 
 function currentLook() {
@@ -706,6 +747,7 @@ function markPresetManual() {
   presetSelect.value = "manual";
   deletePresetButton.disabled = true;
   try { localStorage.setItem(LAST_PRESET_KEY, "manual"); } catch {}
+  renderMoodList();
 }
 
 function applyLook(look, duration = 0.72) {
@@ -736,6 +778,7 @@ function applyPreset(id, announce = true) {
   applyLook(preset);
   presetSelect.value = id;
   deletePresetButton.disabled = !customPresets.some((item) => item.id === id);
+  renderMoodList();
   applyingPreset = false;
   try { localStorage.setItem(LAST_PRESET_KEY, id); } catch {}
   if (announce) showToast(`已切换为「${preset.label}」`);
@@ -892,6 +935,29 @@ function downloadBlob(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+async function renderAtScale(maxEdge, mime = "image/png") {
+  const rect = stage.getBoundingClientRect();
+  const exportScale = Math.min(2, maxEdge / Math.max(rect.width, 1), 4096 / Math.max(rect.width, rect.height, 1));
+  const originalPixelRatio = renderer.getPixelRatio();
+  const originalZoom = camera.position.z;
+  renderer.setPixelRatio(exportScale);
+  renderer.setSize(rect.width, rect.height, false);
+  composer.setPixelRatio(exportScale);
+  composer.setSize(rect.width, rect.height);
+  uniforms.uPixelRatio.value = exportScale;
+  camera.position.z = zoomTarget;
+  composer.render();
+  try {
+    const blob = await new Promise((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error("无法读取画面")), mime, mime === "image/jpeg" ? 0.84 : undefined));
+    return { blob, width: Math.round(rect.width * exportScale), height: Math.round(rect.height * exportScale) };
+  } finally {
+    renderer.setPixelRatio(originalPixelRatio);
+    composer.setPixelRatio(originalPixelRatio);
+    resize();
+    camera.position.z = originalZoom;
+  }
+}
+
 async function exportStill(mime = "image/png") {
   if (exporting) return;
   exporting = true;
@@ -901,34 +967,154 @@ async function exportStill(mime = "image/png") {
   exportButton.disabled = true;
   exportWebpButton.disabled = true;
   button.querySelector("span").textContent = "正在显影";
-  const rect = stage.getBoundingClientRect();
-  const exportScale = Math.min(2, 4096 / Math.max(rect.width, rect.height));
-  const originalPixelRatio = renderer.getPixelRatio();
-  const originalZoom = camera.position.z;
   try {
-    renderer.setPixelRatio(exportScale);
-    renderer.setSize(rect.width, rect.height, false);
-    composer.setPixelRatio(exportScale);
-    composer.setSize(rect.width, rect.height);
-    uniforms.uPixelRatio.value = exportScale;
-    camera.position.z = zoomTarget;
-    composer.render();
-    const blob = await new Promise((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error("无法读取导出画面")), mime));
+    const result = await renderAtScale(4096, mime);
     const ext = mime === "image/webp" ? "webp" : "png";
-    downloadBlob(blob, `${exportStem()}.${ext}`);
-    showToast(`已导出 ${(blob.size / 1024 / 1024).toFixed(1)} MB · ${Math.round(rect.width * exportScale)} × ${Math.round(rect.height * exportScale)}`);
+    downloadBlob(result.blob, `${exportStem()}.${ext}`);
+    showToast(`已导出 ${(result.blob.size / 1024 / 1024).toFixed(1)} MB · ${result.width} × ${result.height}`);
   } catch (error) {
     showToast(error.message || "导出失败，请重试");
   } finally {
-    renderer.setPixelRatio(originalPixelRatio);
-    composer.setPixelRatio(originalPixelRatio);
-    resize();
-    camera.position.z = originalZoom;
     exportButton.disabled = false;
     exportWebpButton.disabled = false;
     button.querySelector("span").textContent = originalLabel;
     exporting = false;
   }
+}
+
+function openWorksDb() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(WORKS_DB, 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains("prints")) db.createObjectStore("prints", { keyPath: "id" });
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function loadWorks() {
+  try {
+    const db = await openWorksDb();
+    works = await new Promise((resolve, reject) => {
+      const request = db.transaction("prints").objectStore("prints").getAll();
+      request.onsuccess = () => resolve((request.result || []).sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+      request.onerror = () => reject(request.error);
+    });
+    db.close();
+  } catch {
+    works = [];
+  }
+  renderWorks();
+}
+
+async function persistWork(record) {
+  const db = await openWorksDb();
+  await new Promise((resolve, reject) => {
+    const request = db.transaction("prints", "readwrite").objectStore("prints").put(record);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+  db.close();
+}
+
+async function removeWork(id) {
+  const db = await openWorksDb();
+  await new Promise((resolve, reject) => {
+    const request = db.transaction("prints", "readwrite").objectStore("prints").delete(id);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+  db.close();
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.readAsDataURL(blob);
+  });
+}
+
+function showCabinet(tab) {
+  app.dataset.cabinet = tab;
+  tabMoods.setAttribute("aria-selected", String(tab === "moods"));
+  tabWorks.setAttribute("aria-selected", String(tab === "works"));
+  moodPane.hidden = tab !== "moods";
+  worksPane.hidden = tab !== "works";
+}
+
+function renderWorks() {
+  if (!worksGrid) return;
+  worksGrid.innerHTML = works.map((work) => `<button type="button" class="work-card" data-work="${work.id}" aria-label="${work.title}"><img alt="" src="${work.thumb || work.print}" /></button>`).join("");
+}
+
+async function saveWork() {
+  if (exporting) return;
+  if (works.length >= MAX_WORKS) {
+    showToast(`柜子最多收藏 ${MAX_WORKS} 张作品`);
+    return;
+  }
+  exporting = true;
+  try {
+    const print = await renderAtScale(1280, "image/jpeg");
+    const thumb = await renderAtScale(360, "image/jpeg");
+    const record = {
+      id: `work-${Date.now()}`,
+      title: `${sourceName.textContent} · ${presetLabel(presetSelect.value)}`,
+      sourceName: sourceName.textContent,
+      createdAt: new Date().toISOString(),
+      recipe: currentLook(),
+      rotation: { ...rotationTarget },
+      zoomRatio: Number((zoomTarget / fittedZoom).toFixed(3)),
+      print: await blobToDataUrl(print.blob),
+      thumb: await blobToDataUrl(thumb.blob),
+    };
+    await persistWork(record);
+    works.unshift(record);
+    renderWorks();
+    showCabinet("works");
+    showToast("作品已放入柜子");
+  } catch (error) {
+    showToast(error.message || "收藏失败，请重试");
+  } finally {
+    exporting = false;
+  }
+}
+
+function openWork(id) {
+  const work = works.find((item) => item.id === id);
+  if (!work) return;
+  activeWorkId = id;
+  printImage.src = work.print || work.thumb;
+  printTitle.textContent = work.title;
+  printTime.textContent = new Date(work.createdAt).toLocaleString("zh-CN", { hour12: false });
+  printDialog.showModal();
+}
+
+function applyActiveWork() {
+  const work = works.find((item) => item.id === activeWorkId);
+  if (!work?.recipe) return;
+  applyingPreset = true;
+  applyLook(work.recipe);
+  if (work.rotation) rotationTarget = { ...work.rotation };
+  if (work.zoomRatio) zoomTarget = fittedZoom * work.zoomRatio;
+  publishViewState();
+  applyingPreset = false;
+  markPresetManual();
+  printDialog.close();
+  showToast("已套用这张作品的配方");
+}
+
+async function deleteActiveWork() {
+  if (!activeWorkId) return;
+  await removeWork(activeWorkId);
+  works = works.filter((item) => item.id !== activeWorkId);
+  activeWorkId = null;
+  renderWorks();
+  printDialog.close();
+  showToast("作品已移出柜子");
 }
 
 function exportRecipe() {
@@ -1102,7 +1288,7 @@ function monitorAutomaticQuality(delta) {
 
 function playIntro() {
   if (reducedMotion) return;
-  gsap.from(".identity, .hero h1, .primary-button, .control-dock, .source-chip", {
+  gsap.from(".identity, .primary-button, .cabinet, .control-dock, .source-chip", {
     opacity: 0, y: 6, stagger: 0.05, duration: 0.6, ease: "power2.out", clearProps: "transform,opacity",
   });
 }
@@ -1118,6 +1304,22 @@ captureExit.addEventListener("click", () => setCaptureMode(false));
 exportButton.addEventListener("click", () => exportStill("image/png"));
 exportWebpButton.addEventListener("click", () => exportStill("image/webp"));
 recipeButton.addEventListener("click", exportRecipe);
+collectButton.addEventListener("click", saveWork);
+saveWorkButton.addEventListener("click", saveWork);
+tabMoods.addEventListener("click", () => showCabinet("moods"));
+tabWorks.addEventListener("click", () => showCabinet("works"));
+moodList.addEventListener("click", (event) => {
+  const plate = event.target.closest("[data-preset]");
+  if (!plate || plate.dataset.preset === "manual") return;
+  applyPreset(plate.dataset.preset);
+});
+worksGrid.addEventListener("click", (event) => {
+  const card = event.target.closest("[data-work]");
+  if (card) openWork(card.dataset.work);
+});
+printApply.addEventListener("click", applyActiveWork);
+printDelete.addEventListener("click", () => deleteActiveWork());
+printClose.addEventListener("click", () => printDialog.close());
 inspireButton.addEventListener("click", inspire);
 helpButton.addEventListener("click", () => helpDialog.showModal());
 restoreDefaults.addEventListener("click", () => applyPreset("reveal"));
@@ -1235,8 +1437,11 @@ window.addEventListener("paste", (event) => {
 });
 
 window.addEventListener("keydown", (event) => {
-  if (presetDialog.open || helpDialog.open) {
-    if (event.key === "Escape") helpDialog.close();
+  if (presetDialog.open || helpDialog.open || printDialog.open) {
+    if (event.key === "Escape") {
+      helpDialog.close();
+      printDialog.close();
+    }
     return;
   }
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "o") {
@@ -1250,6 +1455,10 @@ window.addEventListener("keydown", (event) => {
   if (!event.metaKey && !event.ctrlKey && event.key.toLowerCase() === "r" && !event.target.closest("input, textarea, select, [contenteditable='true']")) {
     event.preventDefault();
     inspire();
+  }
+  if (!event.metaKey && !event.ctrlKey && event.key.toLowerCase() === "b" && !event.target.closest("input, textarea, select, [contenteditable='true']")) {
+    event.preventDefault();
+    saveWork();
   }
   if (!event.metaKey && !event.ctrlKey && event.key.toLowerCase() === "s" && captureMode) {
     event.preventDefault();
@@ -1301,6 +1510,7 @@ if (hashedRecipe) {
 }
 resize();
 playIntro();
+loadWorks();
 
 loadImage("/flower-signal.png")
   .then((image) => buildParticles(image, "Flower signal"))

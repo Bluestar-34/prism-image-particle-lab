@@ -31,7 +31,7 @@ async function geometry(label) {
       return { x: r.x, y: r.y, width: r.width, height: r.height, right: r.right, bottom: r.bottom };
     };
     const canvas = rect(document.querySelector('#particle-canvas'));
-    const selectors = ['.info-rail', '.source-chip', '.controls-rail'];
+    const selectors = ['.info-rail', '.cabinet', '.source-chip', '.controls-rail'];
     const regions = selectors.map(selector => ({ selector, ...rect(document.querySelector(selector)) }));
     const intersections = regions.filter(r => Math.min(canvas.right, r.right) - Math.max(canvas.x, r.x) > 1 && Math.min(canvas.bottom, r.bottom) - Math.max(canvas.y, r.y) > 1);
     const outside = regions.filter(r => r.x < -1 || r.y < -1 || r.right > innerWidth + 1 || r.bottom > innerHeight + 1);
@@ -63,6 +63,8 @@ try {
   await page.waitForFunction(() => document.querySelector('#source-meta')?.textContent.includes('个粒子'));
   await delay(1900);
   check('requested copy removed', !(await page.locator('body').innerText()).includes('仅在本地处理') && await page.locator('[data-lucide="arrow-up-right"]').count() === 0);
+  check('cabinet is wide enough for collections', (await page.locator('.info-rail').boundingBox()).width >= 210);
+  check('mood plates replace the cramped preset control', await page.locator('.mood-plate').count() >= 4 && await page.locator('#save-preset').evaluate(el => el.getBoundingClientRect().width >= 120));
   check('closed parameters are inert', await page.locator('#parameter-panel').evaluate(el => el.inert && el.getAttribute('aria-hidden') === 'true'));
   await page.locator('#tune-button').focus();
   await page.keyboard.press('Tab');
@@ -164,6 +166,14 @@ try {
   check('custom mood is persisted in versioned local storage', await page.evaluate(() => JSON.parse(localStorage.getItem('prism.presets.v1') || '[]').some(item => item.label === '测试气质')));
   await page.locator('#delete-preset').click();
   check('custom mood deletes and returns to reveal', !(await page.locator('#preset-select option').allTextContents()).includes('测试气质') && await page.locator('#preset-select').inputValue() === 'reveal');
+  await page.locator('#tab-works').click();
+  await page.locator('#save-work').click();
+  await page.waitForFunction(() => document.querySelectorAll('.work-card').length > 0, null, { timeout: 8000 });
+  check('finished work can be collected into the cabinet', await page.locator('.work-card').count() >= 1 && await page.locator('#tab-works').getAttribute('aria-selected') === 'true');
+  await page.locator('.work-card').first().click();
+  check('collected work opens a print viewer', await page.locator('#print-dialog').evaluate(el => el.open));
+  await page.locator('#print-close').click();
+  await page.locator('#tab-moods').click();
   await page.locator('#scatter-button').click();
   await page.locator('#scatter-button').click();
   if (await attr('#pause-button', 'aria-pressed') === 'true') await page.locator('#pause-button').click();
