@@ -245,3 +245,59 @@ input[type="range"]::-moz-range-thumb { width: 7px; height: 7px; border: 0; bord
   .mood-plate { min-height: 36px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition-duration: .01ms !important; } }
+
+/* 2026-09 soft material pass: calmer Apple-like surfaces with a more generous collection shelf. */
+:root {
+  --bg: #111114;
+  --surface: #1b1b20;
+  --text: #e8e7e3;
+  --muted: #aaa8a5;
+  --quiet: #77767a;
+  --accent: #e5a18f;
+  --accent-soft: #e5a18f1f;
+  --bone: #f1eee8;
+  --line: #f1eee814;
+}
+.experience {
+  grid-template-columns: clamp(286px, 25vw, 350px) minmax(0, 1fr) 176px;
+  column-gap: clamp(18px, 2.2vw, 34px);
+  background:
+    radial-gradient(ellipse at 57% 46%, #28242c 0%, var(--bg) 58%),
+    linear-gradient(110deg, #18171b 0%, var(--bg) 62%);
+}
+.info-rail {
+  padding-right: clamp(18px, 1.8vw, 28px);
+  border-right-color: #f1eee81b;
+}
+.seal { border-radius: 12px; background: linear-gradient(145deg, #e5a18f, #c889a8); color: #21191d; }
+.primary-button, .cabinet-actions button, #save-work { border-radius: 12px; border-color: #f1eee822; background: #ffffff06; }
+.primary-button:hover, #save-preset:hover, #save-work:hover { background: #e5a18f22; border-color: #e5a18f66; color: var(--bone); }
+.cabinet { padding: 14px; border: 1px solid #f1eee812; border-radius: 18px; background: #ffffff04; box-shadow: inset 0 1px #ffffff08, 0 18px 44px #0003; }
+.cabinet-tabs { margin-inline: -2px; }
+.cabinet-tabs button { min-height: 44px; border-radius: 10px 10px 0 0; }
+.cabinet-tabs button[aria-selected="true"] { background: linear-gradient(180deg, #e5a18f14, transparent); }
+.mood-list { gap: 6px; }
+.mood-plate { min-height: 56px; border-radius: 12px; grid-template-columns: 30px minmax(0,1fr) 10px; background: #ffffff03; }
+.mood-plate::after { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #d7b2a0; opacity: .75; }
+.mood-plate:nth-child(2)::after { background: #9fb8c7; }
+.mood-plate:nth-child(3)::after { background: #b9b0d4; }
+.mood-plate:nth-child(4)::after { background: #c8c092; }
+.mood-plate:hover, .mood-plate.active { background: linear-gradient(100deg, #e5a18f18, #9fb8c70b); }
+.mood-plate span { font-family: var(--font); font-size: 14px; }
+.works-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.work-card { border-radius: 12px; background: #0d0d10; box-shadow: inset 0 0 0 1px #f1eee81b; }
+.cabinet-actions { gap: 10px; padding-top: 14px; }
+.stage { border-radius: 20px; background: #0d0d10; box-shadow: 0 0 0 1px #f1eee812, 0 30px 90px #0005; }
+.viewfinder { inset: 18px; }
+.controls-rail { padding-left: 10px; }
+.mode-button, .dock-button { border-radius: 10px; min-height: 46px; }
+.mode-button:hover, .dock-button:hover { background: #ffffff06; }
+.mode-button.active, .dock-button.active { color: #e5a18f; }
+@media (max-width: 1100px) and (min-width: 768px) {
+  .experience { grid-template-columns: 252px minmax(0, 1fr) 150px; }
+}
+@media (max-width: 767px) {
+  .experience { grid-template-columns: minmax(0, 1fr) 46px; }
+  .cabinet { padding: 10px; border-radius: 16px; }
+  .stage { border-radius: 16px; }
+}

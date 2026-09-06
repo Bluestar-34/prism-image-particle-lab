@@ -343,7 +343,6 @@ function loadImage(url) {
 }
 
 async function decodeFile(file) {
-  if ("createImageBitmap" in window) return createImageBitmap(file);
   return new Promise((resolve, reject) => {
     const image = new Image();
     const url = URL.createObjectURL(file);
@@ -355,6 +354,7 @@ async function decodeFile(file) {
       URL.revokeObjectURL(url);
       reject(new Error("无法读取这张图片"));
     };
+    image.decoding = "async";
     image.src = url;
   });
 }
