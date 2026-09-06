@@ -1512,7 +1512,7 @@ resize();
 playIntro();
 loadWorks();
 
-loadImage("/flower-signal.png")
+loadImage(`${import.meta.env.BASE_URL}flower-signal.png`)
   .then((image) => buildParticles(image, "Flower signal"))
   .catch((error) => showToast(error.message));
 

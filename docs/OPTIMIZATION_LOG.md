@@ -126,3 +126,8 @@
 - 视觉改为灯黑底 + 朱印色块「棱」、取景框角标、右侧编号形态，去掉拥挤的气质下拉和 30px 收藏图标。
 - 修了 `hidden` 被 `display:flex` 覆盖导致气质/作品叠在一起、以及 dialog 默认显示的问题。
 - 自动化 179/179 通过。
+
+## 2026-09-06 · 14 / 修复 GitHub Pages 资源路径
+
+- 生产构建把 JS/CSS 写成了站点根路径 `/assets/...`，项目页 `...github.io/prism-image-particle-lab/` 会全部 404，页面只剩未样式化的空壳。
+- 增加 `vite.config.js` 的 `base: './'`，示例图改为 `import.meta.env.BASE_URL`，重新构建后资源为相对路径。
