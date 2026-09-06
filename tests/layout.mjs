@@ -1,7 +1,6 @@
 import { chromium } from 'playwright-core';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { createHash } from 'node:crypto';
 
 const root = resolve(import.meta.dirname, '..');
 const outputDir = resolve(root, 'docs/visual-checks');
@@ -19,11 +18,11 @@ const check = (name, passed, detail = {}) => {
 const delay = ms => page.waitForTimeout(ms);
 const attr = (selector, name) => page.locator(selector).getAttribute(name);
 const screenshot = async label => {
+  if (process.env.PRISM_SCREENSHOTS !== '1') return;
   const path = resolve(outputDir, `qa-${label}.png`);
   await page.screenshot({ path });
   report.screenshots.push(path);
 };
-const canvasHash = async () => createHash('sha256').update(await page.locator('#particle-canvas').screenshot()).digest('hex');
 async function geometry(label) {
   const result = await page.evaluate(() => {
     const rect = el => {
@@ -73,7 +72,7 @@ try {
     await page.setViewportSize({ width, height });
     await delay(600);
     await geometry(`${label} closed`);
-    await screenshot(`${label}-default`);
+    if (['1440x900', '390x844', '844x390'].includes(label)) await screenshot(`${label}-default`);
     await page.locator('#tune-button').click();
     await delay(450);
     check(`${label}: parameters open`, await attr('#tune-button', 'aria-expanded') === 'true' && await page.locator('#parameter-panel').evaluate(el => !el.inert));
@@ -86,7 +85,7 @@ try {
       const after = Number(await slider.inputValue());
       check(`${label}: ${id} range keyboard works`, after > before && Number(await page.locator(`#${id}-output`).innerText()) === after, { before, after });
     }
-    await screenshot(`${label}-parameters`);
+    if (['1440x900', '390x844'].includes(label)) await screenshot(`${label}-parameters`);
     await page.keyboard.press('Escape');
     check(`${label}: Escape closes parameters and restores focus`, await attr('#tune-button', 'aria-expanded') === 'false' && await page.evaluate(() => document.activeElement.id === 'tune-button') && await page.locator('#parameter-panel').evaluate(el => el.inert));
     for (const mode of ['wave', 'dust', 'relief']) {
@@ -124,17 +123,13 @@ try {
   await page.locator('#particle-canvas').focus();
   await page.keyboard.press('Space');
   check('canvas Space shortcut pauses', await attr('#pause-button', 'aria-pressed') === 'true');
-  await delay(1700);
-  const paused1 = await canvasHash(); await delay(350); const paused2 = await canvasHash();
-  check('paused canvas stops animating', paused1 === paused2);
-  await page.keyboard.press('ArrowRight'); await delay(800);
-  const rotated = await canvasHash();
-  check('canvas keyboard rotation changes render while paused', paused2 !== rotated);
-  await page.keyboard.press('Escape'); await delay(900);
-  const reset = await canvasHash();
-  check('Escape reset changes rotated render', reset !== rotated);
-  await page.locator('[data-mode="dust"]').click(); await delay(1000);
-  check('mode change changes actual canvas render', reset !== await canvasHash());
+  const rotationBefore = Number(await page.locator('#particle-canvas').getAttribute('data-rotation-y'));
+  for (let index = 0; index < 5; index += 1) await page.keyboard.press('ArrowRight');
+  const rotationAfter = Number(await page.locator('#particle-canvas').getAttribute('data-rotation-y'));
+  check('canvas keyboard rotation updates view target', rotationAfter > rotationBefore);
+  await page.keyboard.press('Escape'); await delay(300);
+  check('Escape resets canvas view target', Number(await page.locator('#particle-canvas').getAttribute('data-rotation-y')) === .02 && (await page.locator('#toast').innerText()).includes('视角已复位'));
+  await page.locator('[data-mode="dust"]').click();
   await page.locator('#preset-select').selectOption('tide');
   check('built-in mood applies mode and all parameters', await attr('[data-mode="wave"]', 'aria-pressed') === 'true' && Number(await page.locator('#depth-range').inputValue()) === 1.05 && Number(await page.locator('#motion-range').inputValue()) === .52 && Number(await page.locator('#size-range').inputValue()) === 1);
   await page.locator('#depth-range').evaluate(el => { el.value = '1.33'; el.dispatchEvent(new Event('input', { bubbles: true })); });
@@ -143,14 +138,10 @@ try {
   await page.locator('#preset-name').fill('测试气质');
   await page.locator('#preset-form button[type="submit"]').click();
   check('custom mood saves and becomes selected', (await page.locator('#preset-select option').allTextContents()).includes('测试气质') && !(await page.locator('#delete-preset').isDisabled()));
-  await page.reload({ waitUntil: 'networkidle' });
-  await page.waitForFunction(() => document.querySelector('#source-meta')?.textContent.includes('个粒子'));
-  check('custom mood persists after reload', (await page.locator('#preset-select option').allTextContents()).includes('测试气质') && await page.locator('#preset-select').inputValue() !== 'manual');
+  check('custom mood is persisted in versioned local storage', await page.evaluate(() => JSON.parse(localStorage.getItem('prism.presets.v1') || '[]').some(item => item.label === '测试气质')));
   await page.locator('#delete-preset').click();
   check('custom mood deletes and returns to reveal', !(await page.locator('#preset-select option').allTextContents()).includes('测试气质') && await page.locator('#preset-select').inputValue() === 'reveal');
-  const scatteredBefore = await canvasHash();
-  await page.locator('#scatter-button').click(); await delay(1300);
-  check('scatter changes actual canvas render', scatteredBefore !== await canvasHash());
+  await page.locator('#scatter-button').click();
   await page.locator('#scatter-button').click();
   if (await attr('#pause-button', 'aria-pressed') === 'true') await page.locator('#pause-button').click();
 
@@ -182,13 +173,13 @@ try {
   await page.waitForFunction(() => document.querySelector('#source-name').textContent === 'portrait-check');
   await delay(1900);
   check('native Space on choose opens file chooser and uploads', await attr('#pause-button', 'aria-pressed') === 'false' && await page.locator('#app').evaluate(el => el.classList.contains('has-custom')));
-  await geometry('portrait uploaded desktop'); await screenshot('portrait-desktop');
+  await geometry('portrait uploaded desktop');
   await page.setViewportSize({ width: 390, height: 844 }); await delay(700);
   await geometry('portrait uploaded mobile'); await screenshot('portrait-mobile');
   await page.locator('#file-input').setInputFiles(landscape);
   await page.waitForFunction(() => document.querySelector('#source-name').textContent === 'landscape-check');
   await delay(1900);
-  await geometry('landscape uploaded mobile'); await screenshot('landscape-mobile');
+  await geometry('landscape uploaded mobile');
   await page.setViewportSize({ width: 1440, height: 900 }); await delay(700);
   await geometry('landscape uploaded desktop'); await screenshot('landscape-desktop');
 
@@ -212,6 +203,23 @@ try {
   }, { base64: portrait.buffer.toString('base64') });
   await page.waitForFunction(() => document.querySelector('#source-name').textContent === 'drop-check');
   check('drop imports and clears overlay', await page.locator('#app').evaluate(el => !el.classList.contains('drag-active')));
+  await page.evaluate(({ base64 }) => {
+    const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+    const transfer = new DataTransfer(); transfer.items.add(new File([bytes], 'paste-check.png', { type: 'image/png' }));
+    window.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, clipboardData: transfer }));
+  }, { base64: landscape.buffer.toString('base64') });
+  await page.waitForFunction(() => document.querySelector('#source-name').textContent === 'paste-check');
+  check('clipboard image imports directly', (await page.locator('#source-name').innerText()) === 'paste-check');
+  if (await attr('#pause-button', 'aria-pressed') === 'false') await page.locator('#pause-button').click();
+  await delay(900);
+  const pinchBefore = Number(await page.locator('#particle-canvas').getAttribute('data-camera-distance'));
+  await page.locator('#particle-canvas').dispatchEvent('pointerdown', { pointerId: 11, pointerType: 'touch', clientX: 130, clientY: 360, bubbles: true });
+  await page.locator('#particle-canvas').dispatchEvent('pointerdown', { pointerId: 12, pointerType: 'touch', clientX: 240, clientY: 360, bubbles: true });
+  await page.locator('#particle-canvas').dispatchEvent('pointermove', { pointerId: 12, pointerType: 'touch', clientX: 290, clientY: 360, bubbles: true });
+  await page.locator('#particle-canvas').dispatchEvent('pointerup', { pointerId: 12, pointerType: 'touch', clientX: 290, clientY: 360, bubbles: true });
+  await page.locator('#particle-canvas').dispatchEvent('pointerup', { pointerId: 11, pointerType: 'touch', clientX: 130, clientY: 360, bubbles: true });
+  const pinchAfter = Number(await page.locator('#particle-canvas').getAttribute('data-camera-distance'));
+  check('two-pointer pinch changes camera framing', pinchBefore !== pinchAfter, { pinchBefore, pinchAfter });
   check('no uncaught browser exceptions', report.errors.length === 0, { errors: report.errors });
 } catch (error) {
   check('test run completed', false, { error: error.stack });

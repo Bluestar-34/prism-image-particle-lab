@@ -94,6 +94,9 @@ let exporting = false;
 let dragActive = false;
 let dragMoved = false;
 let dragDepth = 0;
+const activePointers = new Map();
+let pinchStartDistance = 0;
+let pinchStartZoom = 0;
 let toastTimer;
 let revealStartedAt = performance.now();
 let lastPointer = { x: 0, y: 0 };
@@ -750,8 +753,15 @@ async function exportPng() {
 function resetView(showMessage = true) {
   rotationTarget = { x: -0.04, y: 0.02 };
   zoomTarget = fittedZoom;
+  publishViewState();
   gsap.set(canvasHint, { clearProps: "opacity,visibility" });
   if (showMessage) showToast("视角已复位");
+}
+
+function publishViewState() {
+  canvas.dataset.rotationX = rotationTarget.x.toFixed(3);
+  canvas.dataset.rotationY = rotationTarget.y.toFixed(3);
+  canvas.dataset.cameraDistance = zoomTarget.toFixed(3);
 }
 
 function updateRange(range, output, value, min, max) {
@@ -761,10 +771,16 @@ function updateRange(range, output, value, min, max) {
 
 function onPointerDown(event) {
   if (event.target.closest("button, input, .parameter-panel, .control-dock, .source-chip")) return;
+  activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  if (activePointers.size === 2) {
+    const [first, second] = [...activePointers.values()];
+    pinchStartDistance = Math.hypot(second.x - first.x, second.y - first.y);
+    pinchStartZoom = zoomTarget;
+  }
   dragActive = true;
   dragMoved = false;
   lastPointer = { x: event.clientX, y: event.clientY };
-  canvas.setPointerCapture?.(event.pointerId);
+  try { canvas.setPointerCapture?.(event.pointerId); } catch {}
 }
 
 function onPointerMove(event) {
@@ -774,6 +790,15 @@ function onPointerMove(event) {
     -(((event.clientY - rect.top) / rect.height) * 2 - 1),
   );
   if (!dragActive) return;
+  if (activePointers.has(event.pointerId)) activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  if (activePointers.size >= 2) {
+    const [first, second] = [...activePointers.values()];
+    const distance = Math.max(1, Math.hypot(second.x - first.x, second.y - first.y));
+    zoomTarget = THREE.MathUtils.clamp(pinchStartZoom * (pinchStartDistance / distance), fittedZoom * 0.55, fittedZoom * 1.8);
+    publishViewState();
+    dragMoved = true;
+    return;
+  }
 
   const dx = event.clientX - lastPointer.x;
   const dy = event.clientY - lastPointer.y;
@@ -789,13 +814,21 @@ function onPointerMove(event) {
 }
 
 function onPointerUp(event) {
+  activePointers.delete(event.pointerId);
   dragActive = false;
-  canvas.releasePointerCapture?.(event.pointerId);
+  if (activePointers.size === 1) {
+    const remaining = [...activePointers.values()][0];
+    lastPointer = { ...remaining };
+    dragActive = true;
+  }
+  if (activePointers.size < 2) pinchStartDistance = 0;
+  if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
 }
 
 function onWheel(event) {
   event.preventDefault();
   zoomTarget = THREE.MathUtils.clamp(zoomTarget + event.deltaY * fittedZoom * 0.0003, fittedZoom * 0.55, fittedZoom * 1.8);
+  publishViewState();
 }
 
 function resize() {
@@ -906,6 +939,15 @@ window.addEventListener("drop", (event) => {
   handleFile(event.dataTransfer?.files?.[0]);
 });
 
+window.addEventListener("paste", (event) => {
+  if (event.target instanceof Element && event.target.matches("input, textarea, [contenteditable='true']")) return;
+  const imageItem = [...(event.clipboardData?.items || [])].find((item) => item.kind === "file" && item.type.startsWith("image/"));
+  const file = imageItem?.getAsFile();
+  if (!file) return;
+  event.preventDefault();
+  handleFile(new File([file], file.name || `clipboard-${Date.now()}.png`, { type: file.type }));
+});
+
 window.addEventListener("keydown", (event) => {
   if (presetDialog.open) return;
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "o") {
@@ -923,6 +965,7 @@ window.addEventListener("keydown", (event) => {
     if (event.key === "ArrowRight") rotationTarget.y += 0.12;
     if (event.key === "ArrowUp") rotationTarget.x = Math.max(-1, rotationTarget.x - 0.12);
     if (event.key === "ArrowDown") rotationTarget.x = Math.min(1, rotationTarget.x + 0.12);
+    publishViewState();
   }
   if (event.code === "Space" && !event.repeat && !event.target.closest("button, input, select, textarea, a, [contenteditable='true']")) {
     event.preventDefault();
