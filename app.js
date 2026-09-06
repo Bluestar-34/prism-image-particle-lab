@@ -1131,6 +1131,25 @@ function blobToDataUrl(blob) {
   });
 }
 
+async function sourceToDataUrl(source) {
+  const { width: originalWidth, height: originalHeight } = getSourceSize(source);
+  const scale = Math.min(1, 1600 / Math.max(originalWidth, originalHeight));
+  const width = Math.max(1, Math.round(originalWidth * scale));
+  const height = Math.max(1, Math.round(originalHeight * scale));
+  const snapshot = document.createElement("canvas");
+  snapshot.width = width;
+  snapshot.height = height;
+  snapshot.getContext("2d").drawImage(source, 0, 0, width, height);
+  const blob = await new Promise((resolve, reject) => snapshot.toBlob((value) => value ? resolve(value) : reject(new Error("无法保存源图")), "image/webp", 0.92));
+  return blobToDataUrl(blob);
+}
+
+async function decodeArchivedSource(dataUrl) {
+  const response = await fetch(dataUrl);
+  const blob = await response.blob();
+  return decodeFile(new File([blob], "archived-source.webp", { type: blob.type || "image/webp" }));
+}
+
 function showCabinet(tab) {
   app.dataset.cabinet = tab;
   tabMoods.setAttribute("aria-selected", String(tab === "moods"));
@@ -1162,6 +1181,7 @@ async function saveWork() {
       recipe: currentLook(),
       rotation: { ...rotationTarget },
       zoomRatio: Number((zoomTarget / fittedZoom).toFixed(3)),
+      sourceData: await sourceToDataUrl(currentSource),
       print: await blobToDataUrl(print.blob),
       thumb: await blobToDataUrl(thumb.blob),
     };
@@ -1177,15 +1197,32 @@ async function saveWork() {
   }
 }
 
-function openWork(id) {
+async function openWork(id) {
   const work = works.find((item) => item.id === id);
   if (!work) return;
   activeWorkId = id;
-  workViewerImage.src = work.print || work.thumb;
-  workViewerTitle.textContent = work.title;
-  workViewer.hidden = false;
-  stage.classList.add("viewing-work");
-  showToast("已载入收藏作品");
+  if (!work.sourceData) {
+    showToast("这张旧作品没有保存源图，请重新收藏一次");
+    return;
+  }
+  processing.classList.add("visible");
+  try {
+    const source = await decodeArchivedSource(work.sourceData);
+    await presentImage(source, work.sourceName || work.title, true);
+    applyingPreset = true;
+    applyLook(work.recipe, 0.01);
+    applyingPreset = false;
+    if (work.rotation) rotationTarget = { ...work.rotation };
+    if (work.zoomRatio) zoomTarget = fittedZoom * work.zoomRatio;
+    publishViewState();
+    closeWorkViewer();
+    showToast("已恢复这件作品的原图与参数");
+  } catch (error) {
+    applyingPreset = false;
+    showToast(error.message || "无法恢复这件作品");
+  } finally {
+    processing.classList.remove("visible");
+  }
 }
 
 function closeWorkViewer() {
