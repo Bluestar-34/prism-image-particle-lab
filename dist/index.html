@@ -3,57 +3,74 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#12110f" />
-  <meta name="description" content="PRISM：把一张图像显影为可旋转、可呼吸、可定格带走的三维粒子作品。图片只在浏览器内处理。" />
+  <meta name="theme-color" content="#0c0a08" />
+  <meta name="description" content="PRISM：把一张图像显影为可旋转、可呼吸、可收藏的三维粒子作品。图片只在浏览器内处理。" />
   <meta property="og:title" content="PRISM — 图像成为光" />
-  <meta property="og:description" content="暗房里的三维粒子显影。拖入一张图，在空间里重新看见。" />
+  <meta property="og:description" content="暗房里的三维粒子显影。收藏气质，也收藏做成的作品。" />
   <title>PRISM — 图像成为光</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 4 28 26H4Z' fill='none' stroke='%23c9ae96' stroke-width='2'/%3E%3Cpath d='m16 4 4 22M4 26l16-8' fill='none' stroke='%23c9ae96'/%3E%3C/svg%3E" />
-  <script type="module" crossorigin src="/assets/index-CBEn1I3n.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-BfuKBIFq.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23c45c3e'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-size='16' fill='%23f3e6d4' font-family='serif'%3E棱%3C/text%3E%3C/svg%3E" />
+  <script type="module" crossorigin src="/assets/index-DXJfNU1T.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-CRJoPpza.css">
 </head>
 <body>
-  <main class="experience" id="app">
+  <main class="experience" id="app" data-cabinet="moods">
     <div class="grain" aria-hidden="true"></div>
-    <aside class="info-rail" aria-label="图像创作">
+    <aside class="info-rail" aria-label="底片柜">
       <div class="identity">
-        <span class="brand"><svg class="brand-mark" viewBox="0 0 28 28" fill="none" aria-hidden="true"><path d="M14 3 26 24H2L14 3Z"/><path d="m14 3 4 21M2 24l16-8"/></svg><span>PRISM</span></span>
+        <span class="seal" aria-hidden="true">棱</span>
+        <span class="brand">
+          <b>PRISM</b>
+          <small id="plate-caption">PLATE 01 · 显影</small>
+        </span>
       </div>
       <header class="hero" id="hero">
-        <h1><span>让图像</span><span>成为光。</span></h1>
-        <button class="primary-button" id="choose-button" type="button"><span>选择图片</span><i data-lucide="plus" aria-hidden="true"></i></button>
+        <button class="primary-button" id="choose-button" type="button"><span>放入底片</span><i data-lucide="plus" aria-hidden="true"></i></button>
       </header>
-    </aside>
-    <section class="stage" id="drop-target" aria-label="三维图像粒子工作区">
-      <canvas id="particle-canvas" tabindex="0" aria-label="粒子画布。拖动或使用方向键旋转，滚轮缩放，空格暂停，R 灵感，问号查看快捷键，Escape 重置。"></canvas>
-    </section>
-    <section class="source-chip" aria-label="当前图像">
-      <canvas id="source-preview" width="72" height="72" aria-hidden="true"></canvas>
-      <span class="source-copy"><strong id="source-name">Flower signal</strong><small id="source-meta">正在采样</small></span>
-      <button class="source-replace tooltip" id="replace-button" type="button" aria-label="替换图片" data-tooltip="替换图片"><i data-lucide="refresh-cw" aria-hidden="true"></i></button>
-    </section>
-    <aside class="controls-rail" aria-label="创作控制">
-      <section class="control-dock" aria-label="粒子控制">
-        <div class="preset-control">
-          <label for="preset-select">气质</label>
-          <select id="preset-select" aria-label="选择气质预设">
+      <section class="cabinet" aria-label="收藏柜">
+        <div class="cabinet-tabs" role="tablist" aria-label="收藏种类">
+          <button type="button" id="tab-moods" role="tab" aria-selected="true" aria-controls="mood-pane">气质</button>
+          <button type="button" id="tab-works" role="tab" aria-selected="false" aria-controls="works-pane">作品</button>
+        </div>
+        <div class="cabinet-pane" id="mood-pane" role="tabpanel">
+          <select id="preset-select" class="sr-only" aria-label="选择气质预设">
             <option value="reveal">显影</option>
             <option value="tide">潮汐</option>
             <option value="drift">游离</option>
             <option value="ember">余烬</option>
             <option value="manual">当前微调</option>
           </select>
-          <div class="preset-actions">
-            <button id="save-preset" type="button" aria-label="保存当前气质" title="保存当前气质"><i data-lucide="bookmark-plus" aria-hidden="true"></i></button>
-            <button id="delete-preset" type="button" aria-label="删除自定义气质" title="删除自定义气质" disabled><i data-lucide="trash-2" aria-hidden="true"></i></button>
+          <div class="mood-list" id="mood-list"></div>
+          <div class="cabinet-actions">
+            <button id="save-preset" type="button">收藏气质</button>
+            <button id="delete-preset" type="button" disabled>移出</button>
           </div>
         </div>
+        <div class="cabinet-pane" id="works-pane" role="tabpanel" hidden>
+          <div class="works-grid" id="works-grid"></div>
+          <p class="works-empty" id="works-empty">定格一张满意的画面，再放进柜子。</p>
+          <div class="cabinet-actions">
+            <button id="save-work" type="button">收藏作品</button>
+          </div>
+        </div>
+      </section>
+      <section class="source-chip" aria-label="当前图像">
+        <canvas id="source-preview" width="72" height="72" aria-hidden="true"></canvas>
+        <span class="source-copy"><strong id="source-name">Flower signal</strong><small id="source-meta">正在采样</small></span>
+        <button class="source-replace tooltip" id="replace-button" type="button" aria-label="替换图片" data-tooltip="替换图片"><i data-lucide="refresh-cw" aria-hidden="true"></i></button>
+      </section>
+    </aside>
+    <section class="stage" id="drop-target" aria-label="三维图像粒子工作区">
+      <div class="viewfinder" aria-hidden="true"></div>
+      <canvas id="particle-canvas" tabindex="0" aria-label="粒子画布。拖动或使用方向键旋转，滚轮缩放，空格暂停，R 灵感，B 收藏作品，问号查看快捷键，Escape 重置。"></canvas>
+    </section>
+    <aside class="controls-rail" aria-label="创作控制">
+      <section class="control-dock" aria-label="粒子控制">
         <div class="mode-accordion" role="group" aria-label="空间模式">
-          <button class="mode-button active" type="button" data-mode="relief" aria-label="浮雕" aria-pressed="true"><i data-lucide="layers-3" aria-hidden="true"></i><span>浮雕</span></button>
-          <button class="mode-button" type="button" data-mode="wave" aria-label="波面" aria-pressed="false"><i data-lucide="waves" aria-hidden="true"></i><span>波面</span></button>
-          <button class="mode-button" type="button" data-mode="dust" aria-label="星尘" aria-pressed="false"><i data-lucide="sparkles" aria-hidden="true"></i><span>星尘</span></button>
-          <button class="mode-button" type="button" data-mode="vortex" aria-label="漩涡" aria-pressed="false"><i data-lucide="orbit" aria-hidden="true"></i><span>漩涡</span></button>
-          <button class="mode-button" type="button" data-mode="flow" aria-label="流场" aria-pressed="false"><i data-lucide="wind" aria-hidden="true"></i><span>流场</span></button>
+          <button class="mode-button active" type="button" data-mode="relief" aria-label="浮雕" aria-pressed="true"><em>01</em><span>浮雕</span></button>
+          <button class="mode-button" type="button" data-mode="wave" aria-label="波面" aria-pressed="false"><em>02</em><span>波面</span></button>
+          <button class="mode-button" type="button" data-mode="dust" aria-label="星尘" aria-pressed="false"><em>03</em><span>星尘</span></button>
+          <button class="mode-button" type="button" data-mode="vortex" aria-label="漩涡" aria-pressed="false"><em>04</em><span>漩涡</span></button>
+          <button class="mode-button" type="button" data-mode="flow" aria-label="流场" aria-pressed="false"><em>05</em><span>流场</span></button>
         </div>
         <div class="dock-tools">
           <button class="dock-button" id="tune-button" type="button" aria-label="调整参数" aria-expanded="false" aria-controls="parameter-panel"><i data-lucide="sliders-horizontal" aria-hidden="true"></i><span>调整</span></button>
@@ -80,6 +97,7 @@
     </aside>
     <div class="capture-actions" id="capture-actions" aria-hidden="true" inert>
       <span>定格</span>
+      <button id="collect-button" type="button"><span>收藏</span></button>
       <button id="export-button" type="button"><i data-lucide="download" aria-hidden="true"></i><span>PNG</span></button>
       <button id="export-webp-button" type="button"><span>WebP</span></button>
       <button id="recipe-button" type="button"><i data-lucide="file-json" aria-hidden="true"></i><span>配方</span></button>
@@ -87,14 +105,26 @@
     </div>
     <dialog class="preset-dialog" id="preset-dialog">
       <form id="preset-form" method="dialog">
-        <span class="dialog-kicker">保存气质</span>
-        <label for="preset-name">为这一刻命名</label>
+        <span class="dialog-kicker">收藏气质</span>
+        <label for="preset-name">为这一组参数命名</label>
         <input id="preset-name" name="preset-name" maxlength="18" autocomplete="off" required />
         <div class="dialog-actions">
           <button value="cancel" type="button" id="preset-cancel">取消</button>
-          <button value="save" type="submit">保存</button>
+          <button value="save" type="submit">放入柜子</button>
         </div>
       </form>
+    </dialog>
+    <dialog class="print-dialog" id="print-dialog" aria-label="收藏的作品">
+      <img id="print-image" alt="收藏的粒子作品" />
+      <div class="print-meta">
+        <strong id="print-title">未命名作品</strong>
+        <small id="print-time"></small>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" id="print-apply">套用配方</button>
+        <button type="button" id="print-delete">移出柜子</button>
+        <button type="button" id="print-close">关闭</button>
+      </div>
     </dialog>
     <dialog class="help-dialog" id="help-dialog" aria-label="快捷键">
       <form method="dialog">
@@ -102,12 +132,12 @@
         <ul>
           <li><kbd>拖动</kbd><span>旋转</span></li>
           <li><kbd>滚轮</kbd><span>缩放</span></li>
-          <li><kbd>Ctrl O</kbd><span>选择图片</span></li>
+          <li><kbd>Ctrl O</kbd><span>放入底片</span></li>
           <li><kbd>Space</kbd><span>暂停</span></li>
           <li><kbd>R</kbd><span>灵感</span></li>
+          <li><kbd>B</kbd><span>收藏作品</span></li>
           <li><kbd>S</kbd><span>导出 PNG</span></li>
           <li><kbd>Esc</kbd><span>退出 / 复位</span></li>
-          <li><kbd>?</kbd><span>打开本页</span></li>
         </ul>
         <button value="close" type="submit">关闭</button>
       </form>
