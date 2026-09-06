@@ -155,3 +155,13 @@
 
 - `npm run build` 通过。
 - Playwright 1440×900 启动验证：默认源图显示 `9,890 个粒子`，无 page error。
+
+## 2026-09-06 · 17 / 真实浏览器空画布修复
+
+- 用未注入软件 WebGL 参数的 Chrome 真实复现：此前 `powerPreference: high-performance` 会触发图形上下文丢失，页面仍显示粒子数量但画布实际为空；这与截图中的空黑画布一致。
+- 将渲染器改为 `low-power`，让集成显卡、远程浏览器和嵌入式环境优先使用稳定上下文；质量档位仍独立控制采样预算和 DPR，不牺牲可调节性能。
+
+### 验证
+
+- 默认 Chrome（无 SwiftShader 参数）启动后截图确认粒子可见。
+- 默认 Chrome 与软件 WebGL 两种模式均显示 `9,890 个粒子`，无 page error；截图保存于 `docs/visual-checks/default-after-lowpower.png`。

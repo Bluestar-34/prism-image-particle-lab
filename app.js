@@ -184,7 +184,9 @@ const renderer = new THREE.WebGLRenderer({
   canvas,
   alpha: true,
   antialias: false,
-  powerPreference: "high-performance",
+  // Low-power is more reliable on integrated GPUs and remote/embedded browsers;
+  // the particle count and DPR profile still scale visual quality separately.
+  powerPreference: "low-power",
 });
 canvas.addEventListener("webglcontextlost", (event) => {
   event.preventDefault();
