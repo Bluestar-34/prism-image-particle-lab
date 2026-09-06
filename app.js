@@ -8,9 +8,13 @@ import {
   createIcons,
   Aperture,
   BookmarkPlus,
+  CircleHelp,
+  Dices,
   Download,
+  FileJson,
   ImagePlus,
   Layers3,
+  Orbit,
   Pause,
   Play,
   Plus,
@@ -20,6 +24,7 @@ import {
   Sparkles,
   Trash2,
   Waves,
+  Wind,
   X,
 } from "lucide";
 
@@ -27,9 +32,13 @@ const icons = {
   Aperture,
   BookmarkPlus,
   Blend,
+  CircleHelp,
+  Dices,
   Download,
+  FileJson,
   ImagePlus,
   Layers3,
+  Orbit,
   Pause,
   Play,
   Plus,
@@ -39,6 +48,7 @@ const icons = {
   Sparkles,
   Trash2,
   Waves,
+  Wind,
   X,
 };
 createIcons({ icons });
@@ -57,8 +67,13 @@ const captureButton = document.querySelector("#capture-button");
 const captureActions = document.querySelector("#capture-actions");
 const captureExit = document.querySelector("#capture-exit");
 const exportButton = document.querySelector("#export-button");
+const exportWebpButton = document.querySelector("#export-webp-button");
+const recipeButton = document.querySelector("#recipe-button");
+const inspireButton = document.querySelector("#inspire-button");
+const helpButton = document.querySelector("#help-button");
+const helpDialog = document.querySelector("#help-dialog");
+const restoreDefaults = document.querySelector("#restore-defaults");
 const parameterPanel = document.querySelector("#parameter-panel");
-const canvasHint = document.querySelector("#canvas-hint");
 const processing = document.querySelector("#processing");
 const toast = document.querySelector("#toast");
 const sourcePreview = document.querySelector("#source-preview");
@@ -67,9 +82,15 @@ const sourceMeta = document.querySelector("#source-meta");
 const depthRange = document.querySelector("#depth-range");
 const motionRange = document.querySelector("#motion-range");
 const sizeRange = document.querySelector("#size-range");
+const bloomRange = document.querySelector("#bloom-range");
+const warmthRange = document.querySelector("#warmth-range");
+const satRange = document.querySelector("#sat-range");
 const depthOutput = document.querySelector("#depth-output");
 const motionOutput = document.querySelector("#motion-output");
 const sizeOutput = document.querySelector("#size-output");
+const bloomOutput = document.querySelector("#bloom-output");
+const warmthOutput = document.querySelector("#warmth-output");
+const satOutput = document.querySelector("#sat-output");
 const presetSelect = document.querySelector("#preset-select");
 const savePresetButton = document.querySelector("#save-preset");
 const deletePresetButton = document.querySelector("#delete-preset");
@@ -116,11 +137,19 @@ let fittedZoom = zoomTarget;
 const PRESET_KEY = "prism.presets.v1";
 const LAST_PRESET_KEY = "prism.lastPreset.v1";
 const builtInPresets = {
-  reveal: { label: "显影", mode: "relief", depth: 1.2, motion: 0.26, size: 1.1 },
-  tide: { label: "潮汐", mode: "wave", depth: 1.05, motion: 0.52, size: 1.0 },
-  drift: { label: "游离", mode: "dust", depth: 1.4, motion: 0.36, size: 0.86 },
-  ember: { label: "余烬", mode: "relief", depth: 1.65, motion: 0.12, size: 0.8 },
+  reveal: { label: "显影", mode: "relief", depth: 1.2, motion: 0.26, size: 1.1, bloom: 0.48, warmth: 0.08, sat: 1.28 },
+  tide: { label: "潮汐", mode: "wave", depth: 1.05, motion: 0.52, size: 1.0, bloom: 0.44, warmth: -0.12, sat: 1.36 },
+  drift: { label: "游离", mode: "dust", depth: 1.4, motion: 0.36, size: 0.86, bloom: 0.4, warmth: 0.02, sat: 1.18 },
+  ember: { label: "余烬", mode: "relief", depth: 1.65, motion: 0.12, size: 0.8, bloom: 0.56, warmth: 0.42, sat: 1.22 },
 };
+const inspireLooks = [
+  { mode: "relief", depth: 1.18, motion: 0.22, size: 1.12, bloom: 0.46, warmth: 0.16, sat: 1.24 },
+  { mode: "wave", depth: 0.92, motion: 0.62, size: 0.96, bloom: 0.5, warmth: -0.18, sat: 1.4 },
+  { mode: "dust", depth: 1.52, motion: 0.4, size: 0.78, bloom: 0.38, warmth: 0.04, sat: 1.12 },
+  { mode: "vortex", depth: 1.36, motion: 0.54, size: 0.88, bloom: 0.5, warmth: 0.22, sat: 1.3 },
+  { mode: "flow", depth: 1.08, motion: 0.68, size: 0.94, bloom: 0.42, warmth: -0.26, sat: 1.38 },
+  { mode: "ember", depth: 1.7, motion: 0.16, size: 0.76, bloom: 0.6, warmth: 0.48, sat: 1.18 },
+];
 let customPresets = loadCustomPresets();
 let applyingPreset = false;
 let selectedQuality = localStorage.getItem("prism.quality.v1") || "auto";
@@ -166,7 +195,10 @@ const uniforms = {
   uPointSize: { value: Number(sizeRange.value) },
   uPixelRatio: { value: 1 },
   uModes: { value: new THREE.Vector3(1, 0, 0) },
+  uAlt: { value: new THREE.Vector2(0, 0) },
   uPointer: { value: pointer },
+  uWarmth: { value: 0 },
+  uSaturation: { value: 1.32 },
 };
 
 const vertexShader = /* glsl */ `
@@ -176,6 +208,7 @@ const vertexShader = /* glsl */ `
   attribute float aRandom;
   attribute float aEdge;
   attribute float aAlpha;
+  attribute vec2 aFlow;
 
   uniform float uTime;
   uniform float uReveal;
@@ -185,6 +218,7 @@ const vertexShader = /* glsl */ `
   uniform float uPointSize;
   uniform float uPixelRatio;
   uniform vec3 uModes;
+  uniform vec2 uAlt;
   uniform vec2 uPointer;
 
   varying vec3 vColor;
@@ -209,6 +243,17 @@ const vertexShader = /* glsl */ `
     float dustZ = (aRandom - .5) * uDepth * 2.15;
     p.z += reliefZ * uModes.x + waveZ * uModes.y + dustZ * uModes.z;
 
+    float radius = length(position.xy);
+    float ang = atan(position.y, position.x);
+    float swirl = time * (.22 + uMotion * .55) * (.5 + (1.0 - smoothstep(0.0, 2.4, radius)) * .85);
+    vec2 spun = vec2(cos(ang + swirl), sin(ang + swirl)) * radius;
+    p.xy = mix(p.xy, spun, uAlt.x);
+    p.z += ((aLuma - .5) * uDepth * .42 + sin(radius * 3.6 - time) * .09) * uAlt.x;
+
+    float travel = sin(time * (.7 + uMotion) + aLuma * 7.0 + aRandom * 4.0);
+    p.xy += aFlow * travel * (.07 + uMotion * .16) * uAlt.y;
+    p.z += travel * uDepth * .14 * uAlt.y;
+
     float breathe = sin(time * 1.25 + position.y * 2.4 + aRandom * 4.0) * uMotion;
     p.z += breathe * (.018 + uModes.y * .07 + uModes.z * .11);
     p.x += sin(time * .54 + position.y * 2.9 + aRandom * 5.0) * uMotion * .013;
@@ -232,6 +277,8 @@ const vertexShader = /* glsl */ `
 `;
 
 const fragmentShader = /* glsl */ `
+  uniform float uWarmth;
+  uniform float uSaturation;
   varying vec3 vColor;
   varying float vAlpha;
   varying float vEdge;
@@ -243,7 +290,9 @@ const fragmentShader = /* glsl */ `
     float halo = smoothstep(.5, .2, distanceToCenter);
     vec3 lifted = pow(max(vColor, vec3(.004)), vec3(.82));
     float luminance = dot(lifted, vec3(.2126, .7152, .0722));
-    vec3 saturated = mix(vec3(luminance), lifted, 1.32);
+    vec3 saturated = mix(vec3(luminance), lifted, uSaturation);
+    saturated.r = clamp(saturated.r + uWarmth * .07, 0.0, 1.6);
+    saturated.b = clamp(saturated.b - uWarmth * .06, 0.0, 1.6);
     vec3 colorOut = mix(saturated, vec3(1.0, .96, .94), vEdge * .045);
     gl_FragColor = vec4(colorOut, (core * .78 + halo * .22) * vAlpha);
   }
@@ -384,6 +433,12 @@ function buildParticles(source, name, custom = false) {
   const randoms = new Float32Array(visibleCount);
   const edges = new Float32Array(visibleCount);
   const alphas = new Float32Array(visibleCount);
+  const flows = new Float32Array(visibleCount * 2);
+
+  const lumaAt = (px, py) => {
+    const sampleOffset = (py * sample.width + px) * 4;
+    return (pixels[sampleOffset] * 0.2126 + pixels[sampleOffset + 1] * 0.7152 + pixels[sampleOffset + 2] * 0.0722) / 255;
+  };
 
   const maxWidth = 4.65;
   const maxHeight = 4.15;
@@ -436,6 +491,16 @@ function buildParticles(source, name, custom = false) {
       randoms[pointIndex] = pseudo(pointIndex, 4);
       edges[pointIndex] = edge;
       alphas[pointIndex] = Math.max(0.18, alpha);
+      const x0 = Math.max(0, x - 1);
+      const x1 = Math.min(sample.width - 1, x + 1);
+      const y0 = Math.max(0, y - 1);
+      const y1 = Math.min(sample.height - 1, y + 1);
+      const gx = lumaAt(x1, y) - lumaAt(x0, y);
+      const gy = lumaAt(x, y0) - lumaAt(x, y1);
+      const glen = Math.hypot(gx, gy) || 1;
+      const along = pseudo(pointIndex, 8) > 0.5 ? 1 : -1;
+      flows[pointIndex * 2] = (-gy / glen) * along + (gx / glen) * 0.28;
+      flows[pointIndex * 2 + 1] = (gx / glen) * along + (gy / glen) * 0.28;
       pointIndex += 1;
     }
   }
@@ -463,6 +528,7 @@ function buildParticles(source, name, custom = false) {
   geometry.setAttribute("aRandom", new THREE.BufferAttribute(randoms, 1));
   geometry.setAttribute("aEdge", new THREE.BufferAttribute(edges, 1));
   geometry.setAttribute("aAlpha", new THREE.BufferAttribute(alphas, 1));
+  geometry.setAttribute("aFlow", new THREE.BufferAttribute(flows, 2));
   geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 10);
 
   if (points) {
@@ -498,6 +564,15 @@ function buildParticles(source, name, custom = false) {
   if (custom) enterFocusMode();
 }
 
+async function presentImage(source, name, custom = false) {
+  if (points && !reducedMotion) {
+    await new Promise((resolve) => {
+      gsap.to(uniforms.uScatter, { value: 1, duration: 0.38, ease: "power2.in", overwrite: true, onComplete: resolve });
+    });
+  }
+  buildParticles(source, name, custom);
+}
+
 function enterFocusMode() {
   customImageLoaded = true;
   app.classList.add("has-custom");
@@ -521,7 +596,7 @@ async function handleFile(file) {
   try {
     const image = await decodeFile(file);
     const name = file.name.replace(/\.[^.]+$/, "").slice(0, 64) || "未命名图像";
-    buildParticles(image, name, true);
+    await presentImage(image, name, true);
     showToast("图像已经进入空间");
   } catch (error) {
     showToast(error.message || "图片处理失败，请换一张重试");
@@ -572,18 +647,57 @@ function renderPresetOptions(selectedValue) {
     });
     presetSelect.append(group);
   }
-  if ([...presetSelect.options].some((option) => option.value === selectedValue)) presetSelect.value = selectedValue;
+  const allowed = [...presetSelect.options].some((option) => option.value === selectedValue);
+  presetSelect.value = allowed ? selectedValue : "reveal";
   deletePresetButton.disabled = !customPresets.some((preset) => preset.id === presetSelect.value);
 }
 
-function currentPresetSnapshot(label, id = `user-${Date.now()}`) {
+function currentLook() {
   return {
-    id,
-    label,
     mode: document.querySelector(".mode-button.active")?.dataset.mode || "relief",
     depth: Number(depthRange.value),
     motion: Number(motionRange.value),
     size: Number(sizeRange.value),
+    bloom: Number(bloomRange.value),
+    warmth: Number(warmthRange.value),
+    sat: Number(satRange.value),
+    quality: selectedQuality,
+  };
+}
+
+function currentPresetSnapshot(label, id = `user-${Date.now()}`) {
+  return { id, label, ...currentLook() };
+}
+
+function writeRecipeHash() {
+  const look = currentLook();
+  const params = new URLSearchParams({
+    m: look.mode,
+    d: look.depth.toFixed(2),
+    o: look.motion.toFixed(2),
+    s: look.size.toFixed(2),
+    b: look.bloom.toFixed(2),
+    w: look.warmth.toFixed(2),
+    t: look.sat.toFixed(2),
+    q: look.quality,
+  });
+  history.replaceState(null, "", `#${params}`);
+}
+
+function recipeFromHash() {
+  if (!location.hash.startsWith("#") || location.hash.length < 4) return null;
+  const params = new URLSearchParams(location.hash.slice(1));
+  const mode = params.get("m");
+  if (!["relief", "wave", "dust", "vortex", "flow"].includes(mode)) return null;
+  return {
+    mode,
+    depth: Number(params.get("d")),
+    motion: Number(params.get("o")),
+    size: Number(params.get("s")),
+    bloom: Number(params.get("b")),
+    warmth: Number(params.get("w")),
+    sat: Number(params.get("t")),
+    quality: params.get("q") || "auto",
   };
 }
 
@@ -594,21 +708,32 @@ function markPresetManual() {
   try { localStorage.setItem(LAST_PRESET_KEY, "manual"); } catch {}
 }
 
+function applyLook(look, duration = 0.72) {
+  const time = reducedMotion ? 0.01 : duration;
+  setMode(look.mode, false);
+  const values = [
+    [depthRange, depthOutput, look.depth, 0, 2, uniforms.uDepth],
+    [motionRange, motionOutput, look.motion, 0, 1, uniforms.uMotion],
+    [sizeRange, sizeOutput, look.size, 0.55, 1.8, uniforms.uPointSize],
+    [bloomRange, bloomOutput, look.bloom ?? Number(bloomRange.value), 0.12, 0.8],
+    [warmthRange, warmthOutput, look.warmth ?? 0, -1, 1, uniforms.uWarmth],
+    [satRange, satOutput, look.sat ?? 1.32, 0.7, 1.8, uniforms.uSaturation],
+  ];
+  values.forEach(([range, output, value, min, max, uniform]) => {
+    if (!Number.isFinite(value)) return;
+    range.value = value;
+    updateRange(range, output, value, min, max);
+    if (uniform) gsap.to(uniform, { value, duration: time, ease: "power2.inOut" });
+  });
+  applyBloom(Number(bloomRange.value));
+  writeRecipeHash();
+}
+
 function applyPreset(id, announce = true) {
   const preset = builtInPresets[id] || customPresets.find((item) => item.id === id);
   if (!preset) return;
   applyingPreset = true;
-  setMode(preset.mode);
-  const values = [
-    [depthRange, depthOutput, preset.depth, 0, 2, uniforms.uDepth],
-    [motionRange, motionOutput, preset.motion, 0, 1, uniforms.uMotion],
-    [sizeRange, sizeOutput, preset.size, 0.55, 1.8, uniforms.uPointSize],
-  ];
-  values.forEach(([range, output, value, min, max, uniform]) => {
-    range.value = value;
-    updateRange(range, output, value, min, max);
-    gsap.to(uniform, { value, duration: reducedMotion ? 0.01 : 0.72, ease: "power2.inOut" });
-  });
+  applyLook(preset);
   presetSelect.value = id;
   deletePresetButton.disabled = !customPresets.some((item) => item.id === id);
   applyingPreset = false;
@@ -629,12 +754,14 @@ function openPresetDialog() {
 function saveCurrentPreset(labelValue) {
   const label = labelValue.trim().slice(0, 18);
   if (!label) return;
-  const preset = currentPresetSnapshot(label);
-  customPresets.push(preset);
+  const existing = customPresets.find((item) => item.label === label);
+  const preset = currentPresetSnapshot(label, existing?.id);
+  if (existing) Object.assign(existing, preset);
+  else customPresets.push(preset);
   saveCustomPresets();
   renderPresetOptions(preset.id);
   try { localStorage.setItem(LAST_PRESET_KEY, preset.id); } catch {}
-  showToast(`已保存「${label}」`);
+  showToast(existing ? `已覆盖「${label}」` : `已保存「${label}」`);
 }
 
 function deleteCurrentPreset() {
@@ -647,11 +774,13 @@ function deleteCurrentPreset() {
   showToast(`已删除「${removed.label}」`);
 }
 
-function setMode(mode) {
+function setMode(mode, announceManual = true) {
   const modes = {
-    relief: { x: 1, y: 0, z: 0 },
-    wave: { x: 0, y: 1, z: 0 },
-    dust: { x: 0, y: 0, z: 1 },
+    relief: { modes: { x: 1, y: 0, z: 0 }, alt: { x: 0, y: 0 } },
+    wave: { modes: { x: 0, y: 1, z: 0 }, alt: { x: 0, y: 0 } },
+    dust: { modes: { x: 0, y: 0, z: 1 }, alt: { x: 0, y: 0 } },
+    vortex: { modes: { x: 0.12, y: 0, z: 0 }, alt: { x: 1, y: 0 } },
+    flow: { modes: { x: 0.18, y: 0, z: 0 }, alt: { x: 0, y: 1 } },
   };
   if (!modes[mode]) return;
 
@@ -661,12 +790,38 @@ function setMode(mode) {
     button.setAttribute("aria-pressed", String(active));
   });
 
-  gsap.to(uniforms.uModes.value, {
-    ...modes[mode],
-    duration: reducedMotion ? 0.01 : 0.8,
-    ease: "power2.inOut",
-  });
+  const time = reducedMotion ? 0.01 : 0.8;
+  gsap.to(uniforms.uModes.value, { ...modes[mode].modes, duration: time, ease: "power2.inOut" });
+  gsap.to(uniforms.uAlt.value, { ...modes[mode].alt, duration: time, ease: "power2.inOut" });
+  if (announceManual) {
+    markPresetManual();
+    writeRecipeHash();
+  }
+}
+
+function applyBloom(value) {
+  bloom.strength = value * (isMobile() ? 0.82 : 1);
+}
+
+function jitter(value, amount, min, max) {
+  return THREE.MathUtils.clamp(value + (Math.random() - 0.5) * amount, min, max);
+}
+
+function inspire() {
+  const seed = inspireLooks[Math.floor(Math.random() * inspireLooks.length)];
+  applyingPreset = true;
+  applyLook({
+    mode: seed.mode === "ember" ? "relief" : seed.mode,
+    depth: jitter(seed.depth, 0.18, 0.35, 1.9),
+    motion: jitter(seed.motion, 0.12, 0.08, 0.86),
+    size: jitter(seed.size, 0.12, 0.62, 1.55),
+    bloom: jitter(seed.bloom, 0.08, 0.18, 0.72),
+    warmth: jitter(seed.warmth, 0.16, -0.7, 0.7),
+    sat: jitter(seed.sat, 0.1, 0.85, 1.65),
+  }, 0.9);
+  applyingPreset = false;
   markPresetManual();
+  showToast("一次偶然显影");
 }
 
 function toggleParameters(force) {
@@ -721,18 +876,31 @@ function setCaptureMode(active) {
   });
 }
 
-function exportName() {
+function exportStem() {
   const source = sourceName.textContent.trim().toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, "-").replace(/^-|-$/g, "") || "image";
   const preset = presetSelect.options[presetSelect.selectedIndex]?.textContent.trim().toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, "-") || "custom";
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  return `prism-${source}-${preset}-${stamp}.png`;
+  return `prism-${source}-${preset}-${stamp}`;
 }
 
-async function exportPng() {
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function exportStill(mime = "image/png") {
   if (exporting) return;
   exporting = true;
+  const button = mime === "image/webp" ? exportWebpButton : exportButton;
+  const originalLabel = button.querySelector("span").textContent;
+  button.disabled = true;
   exportButton.disabled = true;
-  exportButton.querySelector("span").textContent = "正在显影";
+  exportWebpButton.disabled = true;
+  button.querySelector("span").textContent = "正在显影";
   const rect = stage.getBoundingClientRect();
   const exportScale = Math.min(2, 4096 / Math.max(rect.width, rect.height));
   const originalPixelRatio = renderer.getPixelRatio();
@@ -745,13 +913,9 @@ async function exportPng() {
     uniforms.uPixelRatio.value = exportScale;
     camera.position.z = zoomTarget;
     composer.render();
-    const blob = await new Promise((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error("无法读取导出画面")), "image/png"));
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = exportName();
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    const blob = await new Promise((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error("无法读取导出画面")), mime));
+    const ext = mime === "image/webp" ? "webp" : "png";
+    downloadBlob(blob, `${exportStem()}.${ext}`);
     showToast(`已导出 ${(blob.size / 1024 / 1024).toFixed(1)} MB · ${Math.round(rect.width * exportScale)} × ${Math.round(rect.height * exportScale)}`);
   } catch (error) {
     showToast(error.message || "导出失败，请重试");
@@ -761,16 +925,31 @@ async function exportPng() {
     resize();
     camera.position.z = originalZoom;
     exportButton.disabled = false;
-    exportButton.querySelector("span").textContent = "导出 2× PNG";
+    exportWebpButton.disabled = false;
+    button.querySelector("span").textContent = originalLabel;
     exporting = false;
   }
+}
+
+function exportRecipe() {
+  const look = currentLook();
+  const recipe = {
+    product: "PRISM",
+    version: "1.2",
+    createdAt: new Date().toISOString(),
+    sourceName: sourceName.textContent,
+    ...look,
+    rotation: { ...rotationTarget },
+    zoomRatio: Number((zoomTarget / fittedZoom).toFixed(3)),
+  };
+  downloadBlob(new Blob([JSON.stringify(recipe, null, 2)], { type: "application/json" }), `${exportStem()}.json`);
+  showToast("配方已保存，不含原图");
 }
 
 function resetView(showMessage = true) {
   rotationTarget = { x: -0.04, y: 0.02 };
   zoomTarget = fittedZoom;
   publishViewState();
-  gsap.set(canvasHint, { clearProps: "opacity,visibility" });
   if (showMessage) showToast("视角已复位");
 }
 
@@ -823,10 +1002,7 @@ function onPointerMove(event) {
   rotationTarget.x = THREE.MathUtils.clamp(rotationTarget.x, -1.0, 1.0);
   lastPointer = { x: event.clientX, y: event.clientY };
 
-  if (Math.abs(dx) + Math.abs(dy) > 2) {
-    dragMoved = true;
-    gsap.to(canvasHint, { autoAlpha: 0, duration: 0.25 });
-  }
+  if (Math.abs(dx) + Math.abs(dy) > 2) dragMoved = true;
 }
 
 function onPointerUp(event) {
@@ -864,7 +1040,7 @@ function resize() {
   zoomTarget = fittedZoom * (zoomTarget / previousFit);
   camera.position.z = zoomTarget;
   uniforms.uPixelRatio.value = pixelRatio;
-  bloom.strength = profile.bloom * (isMobile() ? 0.82 : 1);
+  applyBloom(Number(bloomRange.value));
 }
 
 function updateQualityUi() {
@@ -892,6 +1068,7 @@ function selectQuality(value) {
   qualityRecoveryWindows = 0;
   try { localStorage.setItem("prism.quality.v1", value); } catch {}
   updateQualityUi();
+  writeRecipeHash();
   rebuildForQuality(`质量：${value === "auto" ? `自动 · ${qualityProfiles[runtimeQuality].label}` : qualityProfiles[runtimeQuality].label}`);
 }
 
@@ -925,7 +1102,7 @@ function monitorAutomaticQuality(delta) {
 
 function playIntro() {
   if (reducedMotion) return;
-  gsap.from(".identity, .hero h1, .hero p, .primary-button, .control-dock, .source-chip", {
+  gsap.from(".identity, .hero h1, .primary-button, .control-dock, .source-chip", {
     opacity: 0, y: 6, stagger: 0.05, duration: 0.6, ease: "power2.out", clearProps: "transform,opacity",
   });
 }
@@ -938,13 +1115,21 @@ scatterButton.addEventListener("click", toggleScatter);
 pauseButton.addEventListener("click", togglePause);
 captureButton.addEventListener("click", () => setCaptureMode(true));
 captureExit.addEventListener("click", () => setCaptureMode(false));
-exportButton.addEventListener("click", exportPng);
+exportButton.addEventListener("click", () => exportStill("image/png"));
+exportWebpButton.addEventListener("click", () => exportStill("image/webp"));
+recipeButton.addEventListener("click", exportRecipe);
+inspireButton.addEventListener("click", inspire);
+helpButton.addEventListener("click", () => helpDialog.showModal());
+restoreDefaults.addEventListener("click", () => applyPreset("reveal"));
 
 document.querySelectorAll(".mode-button").forEach((button) => {
   button.addEventListener("click", () => setMode(button.dataset.mode));
 });
 
-presetSelect.addEventListener("change", () => applyPreset(presetSelect.value));
+presetSelect.addEventListener("change", () => {
+  if (presetSelect.value === "manual") return;
+  applyPreset(presetSelect.value);
+});
 savePresetButton.addEventListener("click", openPresetDialog);
 deletePresetButton.addEventListener("click", deleteCurrentPreset);
 qualitySelect.addEventListener("change", () => selectQuality(qualitySelect.value));
@@ -963,6 +1148,7 @@ depthRange.addEventListener("input", () => {
   updateRange(depthRange, depthOutput, value, 0, 2);
   gsap.to(uniforms.uDepth, { value, duration: 0.24, ease: "power1.out" });
   markPresetManual();
+  writeRecipeHash();
 });
 
 motionRange.addEventListener("input", () => {
@@ -970,6 +1156,7 @@ motionRange.addEventListener("input", () => {
   updateRange(motionRange, motionOutput, value, 0, 1);
   gsap.to(uniforms.uMotion, { value, duration: 0.24, ease: "power1.out" });
   markPresetManual();
+  writeRecipeHash();
 });
 
 sizeRange.addEventListener("input", () => {
@@ -977,6 +1164,31 @@ sizeRange.addEventListener("input", () => {
   updateRange(sizeRange, sizeOutput, value, 0.55, 1.8);
   gsap.to(uniforms.uPointSize, { value, duration: 0.24, ease: "power1.out" });
   markPresetManual();
+  writeRecipeHash();
+});
+
+bloomRange.addEventListener("input", () => {
+  const value = Number(bloomRange.value);
+  updateRange(bloomRange, bloomOutput, value, 0.12, 0.8);
+  applyBloom(value);
+  markPresetManual();
+  writeRecipeHash();
+});
+
+warmthRange.addEventListener("input", () => {
+  const value = Number(warmthRange.value);
+  updateRange(warmthRange, warmthOutput, value, -1, 1);
+  gsap.to(uniforms.uWarmth, { value, duration: 0.24, ease: "power1.out" });
+  markPresetManual();
+  writeRecipeHash();
+});
+
+satRange.addEventListener("input", () => {
+  const value = Number(satRange.value);
+  updateRange(satRange, satOutput, value, 0.7, 1.8);
+  gsap.to(uniforms.uSaturation, { value, duration: 0.24, ease: "power1.out" });
+  markPresetManual();
+  writeRecipeHash();
 });
 
 stage.addEventListener("pointerdown", onPointerDown);
@@ -1023,10 +1235,25 @@ window.addEventListener("paste", (event) => {
 });
 
 window.addEventListener("keydown", (event) => {
-  if (presetDialog.open) return;
+  if (presetDialog.open || helpDialog.open) {
+    if (event.key === "Escape") helpDialog.close();
+    return;
+  }
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "o") {
     event.preventDefault();
     openFilePicker();
+  }
+  if (event.key === "?" || (event.key === "/" && event.shiftKey)) {
+    event.preventDefault();
+    helpDialog.showModal();
+  }
+  if (!event.metaKey && !event.ctrlKey && event.key.toLowerCase() === "r" && !event.target.closest("input, textarea, select, [contenteditable='true']")) {
+    event.preventDefault();
+    inspire();
+  }
+  if (!event.metaKey && !event.ctrlKey && event.key.toLowerCase() === "s" && captureMode) {
+    event.preventDefault();
+    exportStill("image/png");
   }
   if (event.key === "Escape") {
     if (captureMode) setCaptureMode(false);
@@ -1053,9 +1280,25 @@ new ResizeObserver(resize).observe(stage);
 updateRange(depthRange, depthOutput, Number(depthRange.value), 0, 2);
 updateRange(motionRange, motionOutput, Number(motionRange.value), 0, 1);
 updateRange(sizeRange, sizeOutput, Number(sizeRange.value), 0.55, 1.8);
+updateRange(bloomRange, bloomOutput, Number(bloomRange.value), 0.12, 0.8);
+updateRange(warmthRange, warmthOutput, Number(warmthRange.value), -1, 1);
+updateRange(satRange, satOutput, Number(satRange.value), 0.7, 1.8);
 updateQualityUi();
+const hashedRecipe = recipeFromHash();
+if (hashedRecipe?.quality && ["auto", ...qualityOrder].includes(hashedRecipe.quality)) {
+  selectedQuality = hashedRecipe.quality;
+  runtimeQuality = selectedQuality === "auto" ? "balanced" : selectedQuality;
+  updateQualityUi();
+}
 renderPresetOptions(localStorage.getItem(LAST_PRESET_KEY) || "reveal");
-applyPreset(presetSelect.value === "manual" ? "reveal" : presetSelect.value, false);
+if (hashedRecipe) {
+  applyingPreset = true;
+  applyLook(hashedRecipe, 0.01);
+  applyingPreset = false;
+  markPresetManual();
+} else {
+  applyPreset(presetSelect.value === "manual" ? "reveal" : presetSelect.value, false);
+}
 resize();
 playIntro();
 

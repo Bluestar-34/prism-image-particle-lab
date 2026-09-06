@@ -3,13 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#131313" />
-  <meta name="description" content="让图像成为光。用自己的图片创作可旋转、可呼吸的三维粒子作品。" />
+  <meta name="theme-color" content="#12110f" />
+  <meta name="description" content="PRISM：把一张图像显影为可旋转、可呼吸、可定格带走的三维粒子作品。图片只在浏览器内处理。" />
+  <meta property="og:title" content="PRISM — 图像成为光" />
+  <meta property="og:description" content="暗房里的三维粒子显影。拖入一张图，在空间里重新看见。" />
   <title>PRISM — 图像成为光</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 4 28 26H4Z' fill='none' stroke='%23cfb09b' stroke-width='2'/%3E%3Cpath d='m16 4 4 22M4 26l16-8' fill='none' stroke='%23cfb09b'/%3E%3C/svg%3E" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 4 28 26H4Z' fill='none' stroke='%23c9ae96' stroke-width='2'/%3E%3Cpath d='m16 4 4 22M4 26l16-8' fill='none' stroke='%23c9ae96'/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -18,17 +17,14 @@
     <aside class="info-rail" aria-label="图像创作">
       <div class="identity">
         <span class="brand"><svg class="brand-mark" viewBox="0 0 28 28" fill="none" aria-hidden="true"><path d="M14 3 26 24H2L14 3Z"/><path d="m14 3 4 21M2 24l16-8"/></svg><span>PRISM</span></span>
-        <span class="brand-caption">图像粒子实验</span>
       </div>
       <header class="hero" id="hero">
-        <h1><span>让图像，</span><span>成为光。</span></h1>
-        <p>一张图片，一片粒子。<br />在空间里，重新看见。</p>
+        <h1><span>让图像</span><span>成为光。</span></h1>
         <button class="primary-button" id="choose-button" type="button"><span>选择图片</span><i data-lucide="plus" aria-hidden="true"></i></button>
-        <span class="import-hint">或将图片拖入此处</span>
       </header>
     </aside>
     <section class="stage" id="drop-target" aria-label="三维图像粒子工作区">
-      <canvas id="particle-canvas" tabindex="0" aria-label="粒子画布。拖动或使用方向键旋转，滚轮缩放，空格暂停，Escape 重置。"></canvas>
+      <canvas id="particle-canvas" tabindex="0" aria-label="粒子画布。拖动或使用方向键旋转，滚轮缩放，空格暂停，R 灵感，问号查看快捷键，Escape 重置。"></canvas>
     </section>
     <section class="source-chip" aria-label="当前图像">
       <canvas id="source-preview" width="72" height="72" aria-hidden="true"></canvas>
@@ -44,7 +40,7 @@
             <option value="tide">潮汐</option>
             <option value="drift">游离</option>
             <option value="ember">余烬</option>
-            <option value="manual" disabled>当前微调</option>
+            <option value="manual">当前微调</option>
           </select>
           <div class="preset-actions">
             <button id="save-preset" type="button" aria-label="保存当前气质" title="保存当前气质"><i data-lucide="bookmark-plus" aria-hidden="true"></i></button>
@@ -52,30 +48,40 @@
           </div>
         </div>
         <div class="mode-accordion" role="group" aria-label="空间模式">
-          <span class="group-label">形态</span>
           <button class="mode-button active" type="button" data-mode="relief" aria-label="浮雕" aria-pressed="true"><i data-lucide="layers-3" aria-hidden="true"></i><span>浮雕</span></button>
           <button class="mode-button" type="button" data-mode="wave" aria-label="波面" aria-pressed="false"><i data-lucide="waves" aria-hidden="true"></i><span>波面</span></button>
           <button class="mode-button" type="button" data-mode="dust" aria-label="星尘" aria-pressed="false"><i data-lucide="sparkles" aria-hidden="true"></i><span>星尘</span></button>
+          <button class="mode-button" type="button" data-mode="vortex" aria-label="漩涡" aria-pressed="false"><i data-lucide="orbit" aria-hidden="true"></i><span>漩涡</span></button>
+          <button class="mode-button" type="button" data-mode="flow" aria-label="流场" aria-pressed="false"><i data-lucide="wind" aria-hidden="true"></i><span>流场</span></button>
         </div>
         <div class="dock-tools">
           <button class="dock-button" id="tune-button" type="button" aria-label="调整参数" aria-expanded="false" aria-controls="parameter-panel"><i data-lucide="sliders-horizontal" aria-hidden="true"></i><span>调整</span></button>
           <section class="parameter-panel" id="parameter-panel" aria-label="粒子参数" aria-hidden="true" inert>
+            <p class="param-kicker">空间</p>
             <label class="range-control"><span><b>景深</b><output id="depth-output">1.20</output></span><input id="depth-range" type="range" min="0" max="2" step="0.01" value="1.20" /></label>
             <label class="range-control"><span><b>流动</b><output id="motion-output">0.32</output></span><input id="motion-range" type="range" min="0" max="1" step="0.01" value="0.32" /></label>
-              <label class="range-control"><span><b>粒径</b><output id="size-output">1.10</output></span><input id="size-range" type="range" min="0.55" max="1.8" step="0.01" value="1.10" /></label>
-              <label class="quality-control" for="quality-select"><span><b>质量</b><output id="quality-status">均衡</output></span><select id="quality-select"><option value="auto">自动</option><option value="light">轻盈</option><option value="balanced">均衡</option><option value="fine">精致</option></select></label>
-            </section>
+            <label class="range-control"><span><b>粒径</b><output id="size-output">1.10</output></span><input id="size-range" type="range" min="0.55" max="1.8" step="0.01" value="1.10" /></label>
+            <p class="param-kicker">画面</p>
+            <label class="range-control"><span><b>辉光</b><output id="bloom-output">0.48</output></span><input id="bloom-range" type="range" min="0.12" max="0.8" step="0.01" value="0.48" /></label>
+            <label class="range-control"><span><b>色温</b><output id="warmth-output">0.00</output></span><input id="warmth-range" type="range" min="-1" max="1" step="0.01" value="0" /></label>
+            <label class="range-control"><span><b>饱和</b><output id="sat-output">1.32</output></span><input id="sat-range" type="range" min="0.7" max="1.8" step="0.01" value="1.32" /></label>
+            <label class="quality-control" for="quality-select"><span><b>质量</b><output id="quality-status">均衡</output></span><select id="quality-select"><option value="auto">自动</option><option value="light">轻盈</option><option value="balanced">均衡</option><option value="fine">精致</option></select></label>
+            <button class="text-action" id="restore-defaults" type="button">恢复默认</button>
+          </section>
+          <button class="dock-button" id="inspire-button" type="button" aria-label="灵感取样"><i data-lucide="dices" aria-hidden="true"></i><span>灵感</span></button>
           <button class="dock-button" id="scatter-button" type="button" aria-label="散开粒子" aria-pressed="false"><i data-lucide="blend" aria-hidden="true"></i><span>散开</span></button>
           <button class="dock-button" id="pause-button" type="button" aria-label="暂停动画" aria-pressed="false"><i data-lucide="pause" aria-hidden="true"></i><span>暂停</span></button>
           <button class="dock-button" id="capture-button" type="button" aria-label="进入定格模式"><i data-lucide="aperture" aria-hidden="true"></i><span>定格</span></button>
           <button class="dock-button" id="reset-button" type="button" aria-label="重置视角"><i data-lucide="rotate-ccw" aria-hidden="true"></i><span>复位</span></button>
+          <button class="dock-button" id="help-button" type="button" aria-label="快捷键" aria-haspopup="dialog"><i data-lucide="circle-help" aria-hidden="true"></i><span>指引</span></button>
         </div>
       </section>
-      <p class="canvas-hint" id="canvas-hint">拖动旋转<br />滚轮缩放</p>
     </aside>
     <div class="capture-actions" id="capture-actions" aria-hidden="true" inert>
-      <span>定格模式</span>
-      <button id="export-button" type="button"><i data-lucide="download" aria-hidden="true"></i><span>导出 2× PNG</span></button>
+      <span>定格</span>
+      <button id="export-button" type="button"><i data-lucide="download" aria-hidden="true"></i><span>PNG</span></button>
+      <button id="export-webp-button" type="button"><span>WebP</span></button>
+      <button id="recipe-button" type="button"><i data-lucide="file-json" aria-hidden="true"></i><span>配方</span></button>
       <button id="capture-exit" type="button" aria-label="退出定格模式"><i data-lucide="x" aria-hidden="true"></i></button>
     </div>
     <dialog class="preset-dialog" id="preset-dialog">
@@ -89,7 +95,23 @@
         </div>
       </form>
     </dialog>
-    <div class="drop-layer" id="drop-layer" aria-hidden="true"><i data-lucide="image-plus" aria-hidden="true"></i><h2>让这张图，成为光。</h2><p>松手导入 · JPG / PNG / WEBP / AVIF</p></div>
+    <dialog class="help-dialog" id="help-dialog" aria-label="快捷键">
+      <form method="dialog">
+        <span class="dialog-kicker">暗房指引</span>
+        <ul>
+          <li><kbd>拖动</kbd><span>旋转</span></li>
+          <li><kbd>滚轮</kbd><span>缩放</span></li>
+          <li><kbd>Ctrl O</kbd><span>选择图片</span></li>
+          <li><kbd>Space</kbd><span>暂停</span></li>
+          <li><kbd>R</kbd><span>灵感</span></li>
+          <li><kbd>S</kbd><span>导出 PNG</span></li>
+          <li><kbd>Esc</kbd><span>退出 / 复位</span></li>
+          <li><kbd>?</kbd><span>打开本页</span></li>
+        </ul>
+        <button value="close" type="submit">关闭</button>
+      </form>
+    </dialog>
+    <div class="drop-layer" id="drop-layer" aria-hidden="true"><i data-lucide="image-plus" aria-hidden="true"></i><h2>松手，让它进入空间。</h2></div>
     <div class="processing" id="processing" role="status" aria-live="polite"><span></span><b>正在重建图像</b></div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <input id="file-input" type="file" accept="image/png,image/jpeg,image/webp,image/avif" hidden />
@@ -97,4 +119,3 @@
   <script type="module" src="./app.js"></script>
 </body>
 </html>
-

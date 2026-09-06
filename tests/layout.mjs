@@ -66,7 +66,7 @@ try {
   check('closed parameters are inert', await page.locator('#parameter-panel').evaluate(el => el.inert && el.getAttribute('aria-hidden') === 'true'));
   await page.locator('#tune-button').focus();
   await page.keyboard.press('Tab');
-  check('Tab skips closed parameter inputs', await page.evaluate(() => document.activeElement.id === 'scatter-button'));
+  check('Tab skips closed parameter inputs', await page.evaluate(() => document.activeElement.id === 'inspire-button'));
   await page.locator('#tune-button').click();
   const particleCount = async () => Number((await page.locator('#source-meta').innerText()).replace(/[^0-9]/g, ''));
   await page.locator('#quality-select').selectOption('fine');
@@ -92,7 +92,7 @@ try {
     await delay(450);
     check(`${label}: parameters open`, await attr('#tune-button', 'aria-expanded') === 'true' && await page.locator('#parameter-panel').evaluate(el => !el.inert));
     await geometry(`${label} open`);
-    for (const id of ['depth', 'motion', 'size']) {
+    for (const id of ['depth', 'motion', 'size', 'bloom', 'sat']) {
       const slider = page.locator(`#${id}-range`);
       await slider.focus();
       const before = Number(await slider.inputValue());
@@ -103,7 +103,7 @@ try {
     if (['1440x900', '390x844'].includes(label)) await screenshot(`${label}-parameters`);
     await page.keyboard.press('Escape');
     check(`${label}: Escape closes parameters and restores focus`, await attr('#tune-button', 'aria-expanded') === 'false' && await page.evaluate(() => document.activeElement.id === 'tune-button') && await page.locator('#parameter-panel').evaluate(el => el.inert));
-    for (const mode of ['wave', 'dust', 'relief']) {
+    for (const mode of ['wave', 'dust', 'vortex', 'flow', 'relief']) {
       await page.locator(`[data-mode="${mode}"]`).click();
       check(`${label}: ${mode} mode`, await attr(`[data-mode="${mode}"]`, 'aria-pressed') === 'true' && await page.locator('.mode-button[aria-pressed="true"]').count() === 1);
     }
@@ -147,6 +147,14 @@ try {
   await page.locator('[data-mode="dust"]').click();
   await page.locator('#preset-select').selectOption('tide');
   check('built-in mood applies mode and all parameters', await attr('[data-mode="wave"]', 'aria-pressed') === 'true' && Number(await page.locator('#depth-range').inputValue()) === 1.05 && Number(await page.locator('#motion-range').inputValue()) === .52 && Number(await page.locator('#size-range').inputValue()) === 1);
+  await page.locator('#inspire-button').click();
+  await delay(200);
+  check('inspire leaves a designed tweak rather than a named preset', await page.locator('#preset-select').inputValue() === 'manual' && (await page.locator('#toast').innerText()).includes('偶然'));
+  await page.locator('#help-button').click();
+  check('help dialog opens from the quiet legend', await page.locator('#help-dialog').evaluate(el => el.open));
+  await page.keyboard.press('Escape');
+  await delay(150);
+  check('Escape closes help dialog', await page.locator('#help-dialog').evaluate(el => !el.open));
   await page.locator('#depth-range').evaluate(el => { el.value = '1.33'; el.dispatchEvent(new Event('input', { bubbles: true })); });
   check('manual adjustment marks mood as current tweak', await page.locator('#preset-select').inputValue() === 'manual');
   await page.locator('#save-preset').click();
@@ -174,6 +182,10 @@ try {
   check('2x PNG export downloads descriptive filename', /^prism-.+\.png$/.test(download.suggestedFilename()), { filename: download.suggestedFilename() });
   await page.waitForFunction(() => !document.querySelector('#export-button').disabled);
   check('2x PNG export reports dimensions', /\d+ × \d+/.test(await page.locator('#toast').innerText()));
+  const recipePromise = page.waitForEvent('download');
+  await page.locator('#recipe-button').click();
+  const recipeDownload = await recipePromise;
+  check('recipe export is json without image bytes', recipeDownload.suggestedFilename().endsWith('.json'));
   await page.keyboard.press('Escape');
   await delay(350);
   check('Escape exits capture mode and restores focus', await page.locator('#app').evaluate(el => !el.classList.contains('capture-mode')) && await page.evaluate(() => document.activeElement.id === 'capture-button'));
