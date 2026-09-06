@@ -144,3 +144,14 @@
 - `npm run build` 通过。
 - Playwright 复现损坏 PNG：toast 为「无法读取这张图片」，processing 不再处于 visible，页面无 uncaught error。
 - `node tests/layout.mjs` 已完成五个视口检查；长流程在 Windows headless WebGL 结束阶段可能超时，需在 CI 再完整跑一次。
+
+## 2026-09-06 · 16 / 粒子主画面恢复保护
+
+- 针对空画布反馈检查默认图像加载、粒子构建与 WebGL context 状态；默认图像在本地与生产构建均能生成 `9,890` 个粒子，浏览器控制台无异常。
+- 为粒子 canvas 增加 `webglcontextlost` / `webglcontextrestored` 处理：图形环境中断时暂停并提示，恢复后重新调整尺寸、重建当前图像并恢复动画，避免只剩空黑画布。
+- 默认图像加载失败时主动清除 processing 状态并展示可读错误，不再留下无限等待状态。
+
+### 验证
+
+- `npm run build` 通过。
+- Playwright 1440×900 启动验证：默认源图显示 `9,890 个粒子`，无 page error。

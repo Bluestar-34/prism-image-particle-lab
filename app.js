@@ -186,6 +186,17 @@ const renderer = new THREE.WebGLRenderer({
   antialias: false,
   powerPreference: "high-performance",
 });
+canvas.addEventListener("webglcontextlost", (event) => {
+  event.preventDefault();
+  paused = true;
+  showToast("图形环境暂时中断，正在尝试恢复");
+});
+canvas.addEventListener("webglcontextrestored", () => {
+  paused = false;
+  resize();
+  if (currentSource) buildParticles(currentSource, sourceName.textContent, customImageLoaded);
+  showToast("粒子画面已恢复");
+});
 renderer.setClearColor(0x000000, 0);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -1514,7 +1525,10 @@ loadWorks();
 
 loadImage(`${import.meta.env.BASE_URL}flower-signal.png`)
   .then((image) => buildParticles(image, "Flower signal"))
-  .catch((error) => showToast(error.message));
+  .catch((error) => {
+    processing.classList.remove("visible");
+    showToast(`默认图像加载失败：${error.message}`);
+  });
 
 const clock = new THREE.Clock();
 
