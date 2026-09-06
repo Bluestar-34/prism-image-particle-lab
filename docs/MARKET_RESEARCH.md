@@ -11,11 +11,35 @@
 | 样本 | 类型 | 已验证能力 | 对 PRISM 的启发 |
 | --- | --- | --- | --- |
 | [ParticleFX](https://github.com/mitulgajera16/particle-effect) | 开源参数型编辑器 | 图片上传、鼠标排斥与弹簧回弹、点击涟漪、4 个内置预设、自定义预设、20+ 参数、嵌入代码导出、WebGL2 + Canvas2D 回退、本地处理 | 预设与可复用输出很重要；PRISM 应避免一次暴露 20+ 参数，把复杂性封装成少量“气质” |
-| [Particular Drift](https://github.com/collidingScopes/particular-drift) | 开源输出型创作工具 | Sobel 边缘检测、Perlin/Simplex 流场、2D/3D 运动、图片和视频导出、本地处理；视频链路使用 WebCodecs 与 MP4 muxer | 边缘流场可以成为独特的新形态；视频导出证明“作品可带走”是核心，而非附属功能 |
+| [Particular Drift](https://github.com/collidingScopes/particular-drift) | 开源输出型创作工具 | 见下文专项；Sobel 边缘、Perlin/Simplex 流场、随机化、图片/视频导出、快捷键、本地处理 | 学习它的「偶然发现」与导出闭环，但避免 2D 参数墙和叠在画布上的控件 |
 | [Particleify](https://particleify.talizen.com/) | 浏览器端 3D 粒子生成器 | 搜索与产品页信息显示支持图片、SVG、GLB 输入以及交互 HTML、MP4 输出，创作链路完整在浏览器内 | 中期可扩展 SVG/GLB，但当前先把图片导出闭环做透 |
 | [Trickle Interactive Particle Visualizer](https://trickle.so/templates/apps/interactive-particles) | 模板/展示型工具 | Three.js 图像粒子化，密度、颜色、速度与行为控制，上传、复位、响应式以及无代码再编辑 | 这些已成为品类基础能力，不能单独构成差异；PRISM 的空间构图和动效语言需要更鲜明 |
 | [tsParticles](https://particles.js.org/options/plugin-polygon-mask) | 通用粒子框架 | 丰富形状、hover/click 交互、轨迹、声音、缩放与 SVG polygon mask；官方建议优化 SVG 路径并验证加载回退 | 功能覆盖很广但面向开发者配置。PRISM 应提供成品式体验，而不是框架式配置 |
 | [Three.js 粒子示例](https://threejs.org/examples/?q=particle) | 技术基线 | Points sprites、动态点、波面、自定义属性、WebGPU compute 粒子等公开示例 | 单纯“点云 + 波面”已是技术基线，差异必须来自图像适配、导演式转场和输出体验 |
+
+## Particular Drift 专项（2026-09-06）
+
+产品页：[HuntScreens 中文页](https://huntscreens.com/zh/products/particular-drift-free-animation-tool)；源码与能力以 [GitHub README](https://github.com/collidingScopes/particular-drift) 与公开演示为准。
+
+Particular Drift 把静态图变成**贴边流动的 2D 粒子动画**。它不是空间装置，而是一张始终朝向屏幕的流体画布。公开能力可以收成六件事：
+
+1. **边缘成为运动骨架**：Sobel 检测轮廓，吸引力决定粒子是贴边还是脱边游荡。
+2. **流场提供有机运动**：2D Perlin 或 3D Simplex 噪声驱动方向，速度与流场尺度可调。
+3. **参数墙 + 随机化**：粒子数量、大小、透明度、速度、吸引力、边缘阈值、噪声类型均可调；骰子按钮一键打乱，再进入右上角面板精调。这是它被记住的交互。
+4. **作品可带走**：截图与 WebCodecs + mp4 muxer 的视频导出，证明传播闭环比再加一个滑杆更重要。
+5. **快捷键是专业用户的第二界面**：`r` 随机、`c` 色板、`space` 暂停、`enter` 重开、`v` 录视频、`s` 截图、`u` 换图。
+6. **本地、免费、MIT**：无账户、无上传，和 PRISM 的隐私承诺一致，不能当作差异点单独宣传。
+
+它暴露的缺口同样清楚：界面叠在画布上；参数名是算法语言；运动主要发生在平面里，缺少可旋转的景深；随机化经常得到“能看但不美”的组合。
+
+PRISM 的回应不是复制一套 2D 流场编辑器，而是把 Drift 里真正被需要的三件事吸收进暗房语言：
+
+| Drift 的有效部分 | PRISM 的吸收方式 |
+| --- | --- |
+| 边缘与流场 | 新增「漩涡 / 流场」三维形态，运动发生在可旋转的空间里 |
+| 随机化骰子 | 「灵感」只在经过设计的气质空间里取样，而不是打乱全部物理量 |
+| 导出与快捷键 | 定格导出 PNG/WebP，附带 JSON 配方；`?` 揭示克制的快捷键图例 |
+| 色板切换 | 「画面」组提供色温与饱和，而不是另开一套霓虹预设墙 |
 
 ## 用户需求信号
 
@@ -53,13 +77,13 @@
 
 ### 当前纳入
 
-- 2× 高清静态导出与无界面观赏模式。
+- 2× 高清静态导出、WebP 备选与无界面观赏模式。
 - 三档质量/密度与自动质量建议。
-- 参数预设和本地持久化。
-- 触屏双指缩放。
-- 粘贴图片导入。
-- 画面调节：辉光、曝光、饱和度，保持折叠。
-- 新形态优先做「引力」和「流场」，并继续使用连续插值。
+- 参数预设、覆盖保存和本地持久化。
+- 触屏双指缩放与粘贴导入。
+- 折叠的画面调节：辉光、色温、饱和。
+- 三维「漩涡 / 流场」形态，与浮雕/波面/星尘连续插值。
+- 受约束的「灵感」取样，以及可下载、可经 URL 复现的配方。
 
 ### 暂缓
 
@@ -81,6 +105,8 @@
 | --- | --- | --- | --- | --- |
 | [ParticleFX README](https://github.com/mitulgajera16/particle-effect) | Mitul Gajera | 访问于 2026-09-06 | 功能、参数、架构、隐私与导出 | 可直接读取 |
 | [Particular Drift README](https://github.com/collidingScopes/particular-drift) | collidingScopes | 访问于 2026-09-06 | 边缘检测、流场、WebCodecs、图片/视频导出 | 可直接读取 |
+| [HuntScreens · Particular Drift](https://huntscreens.com/zh/products/particular-drift-free-animation-tool) | HuntScreens | 访问于 2026-09-06 | 产品页功能摘要、截图与替代品聚类 | 可直接读取 |
+| [Particular Drift 演示说明](https://github.com/collidingScopes/particular-drift/blob/main/index.html) | collidingScopes | 访问于 2026-09-06 | 快捷键、随机化与导出操作文案 | 可直接读取 |
 | [Particleify](https://particleify.talizen.com/) | Talizen | Public Beta，访问于 2026-09-06 | 输入与输出范围 | 页面超时，仅取得官方页摘要 |
 | [Interactive Particle Visualizer](https://trickle.so/templates/apps/interactive-particles) | Trickle / Risk Taker | 访问于 2026-09-06 | 模板型产品功能与使用场景 | 可直接读取 |
 | [tsParticles Polygon Mask](https://particles.js.org/options/plugin-polygon-mask) | tsParticles | 文档访问于 2026-09-06 | SVG mask 与插件能力 | 可直接读取 |
