@@ -77,10 +77,18 @@ const presetDialog = document.querySelector("#preset-dialog");
 const presetForm = document.querySelector("#preset-form");
 const presetName = document.querySelector("#preset-name");
 const presetCancel = document.querySelector("#preset-cancel");
+const qualitySelect = document.querySelector("#quality-select");
+const qualityStatus = document.querySelector("#quality-status");
 
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const allowedTypes = new Set(["image/png", "image/jpeg", "image/webp", "image/avif"]);
 const isMobile = () => innerWidth <= 640;
+const qualityProfiles = {
+  light: { label: "轻盈", points: 8500, desktopDpr: 1, mobileDpr: 0.9, bloom: 0.24 },
+  balanced: { label: "均衡", points: 23500, mobilePoints: 14500, desktopDpr: 1.6, mobileDpr: 1.25, bloom: 0.42 },
+  fine: { label: "精致", points: 42000, mobilePoints: 24000, desktopDpr: 2, mobileDpr: 1.45, bloom: 0.56 },
+};
+const qualityOrder = ["light", "balanced", "fine"];
 
 let points = null;
 let currentSource = null;
@@ -115,6 +123,13 @@ const builtInPresets = {
 };
 let customPresets = loadCustomPresets();
 let applyingPreset = false;
+let selectedQuality = localStorage.getItem("prism.quality.v1") || "auto";
+if (!["auto", ...qualityOrder].includes(selectedQuality)) selectedQuality = "auto";
+let runtimeQuality = selectedQuality === "auto" ? "balanced" : selectedQuality;
+let qualityWindowFrames = 0;
+let qualityWindowSeconds = 0;
+let qualityRecoveryWindows = 0;
+let qualityChangePending = false;
 
 const renderer = new THREE.WebGLRenderer({
   canvas,
@@ -283,7 +298,8 @@ function getSourceSize(source) {
 }
 
 function getSampleSize(width, height) {
-  const limit = isMobile() ? 14500 : 23500;
+  const profile = qualityProfiles[runtimeQuality];
+  const limit = isMobile() ? (profile.mobilePoints || profile.points) : profile.points;
   if (width * height <= limit) return { width, height };
   const ratio = width / height;
   let sampleWidth = Math.max(1, Math.floor(Math.sqrt(limit * ratio)));
@@ -834,7 +850,8 @@ function onWheel(event) {
 function resize() {
   const rect = stage.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) return;
-  const pixelRatio = Math.min(devicePixelRatio, isMobile() ? 1.25 : 1.6);
+  const profile = qualityProfiles[runtimeQuality];
+  const pixelRatio = Math.min(devicePixelRatio, isMobile() ? profile.mobileDpr : profile.desktopDpr);
   renderer.setPixelRatio(pixelRatio);
   renderer.setSize(rect.width, rect.height, false);
   composer.setPixelRatio(pixelRatio);
@@ -847,7 +864,63 @@ function resize() {
   zoomTarget = fittedZoom * (zoomTarget / previousFit);
   camera.position.z = zoomTarget;
   uniforms.uPixelRatio.value = pixelRatio;
-  bloom.strength = isMobile() ? 0.34 : 0.48;
+  bloom.strength = profile.bloom * (isMobile() ? 0.82 : 1);
+}
+
+function updateQualityUi() {
+  qualitySelect.value = selectedQuality;
+  qualityStatus.textContent = qualityProfiles[runtimeQuality].label;
+}
+
+function rebuildForQuality(message) {
+  resize();
+  if (currentSource) {
+    const rebuild = () => {
+      qualityChangePending = false;
+      buildParticles(currentSource, sourceName.textContent, customImageLoaded);
+      if (message) showToast(message);
+    };
+    qualityChangePending = true;
+    if ("requestIdleCallback" in window) requestIdleCallback(rebuild, { timeout: 600 });
+    else setTimeout(rebuild, 0);
+  } else if (message) showToast(message);
+}
+
+function selectQuality(value) {
+  selectedQuality = value;
+  runtimeQuality = value === "auto" ? "balanced" : value;
+  qualityRecoveryWindows = 0;
+  try { localStorage.setItem("prism.quality.v1", value); } catch {}
+  updateQualityUi();
+  rebuildForQuality(`质量：${value === "auto" ? `自动 · ${qualityProfiles[runtimeQuality].label}` : qualityProfiles[runtimeQuality].label}`);
+}
+
+function monitorAutomaticQuality(delta) {
+  if (selectedQuality !== "auto" || paused || exporting || qualityChangePending || delta <= 0 || delta > 0.2) return;
+  qualityWindowFrames += 1;
+  qualityWindowSeconds += delta;
+  if (qualityWindowFrames < 120) return;
+  const fps = qualityWindowFrames / qualityWindowSeconds;
+  qualityWindowFrames = 0;
+  qualityWindowSeconds = 0;
+  const target = isMobile() ? 30 : 55;
+  const index = qualityOrder.indexOf(runtimeQuality);
+  if (fps < target - 7 && index > 0) {
+    runtimeQuality = qualityOrder[index - 1];
+    qualityRecoveryWindows = 0;
+    updateQualityUi();
+    rebuildForQuality(`已自动切换为${qualityProfiles[runtimeQuality].label}质量`);
+  } else if (fps > target + 8 && index < 1) {
+    qualityRecoveryWindows += 1;
+    if (qualityRecoveryWindows >= 4) {
+      runtimeQuality = qualityOrder[index + 1];
+      qualityRecoveryWindows = 0;
+      updateQualityUi();
+      rebuildForQuality(`已恢复为${qualityProfiles[runtimeQuality].label}质量`);
+    }
+  } else {
+    qualityRecoveryWindows = 0;
+  }
 }
 
 function playIntro() {
@@ -874,6 +947,7 @@ document.querySelectorAll(".mode-button").forEach((button) => {
 presetSelect.addEventListener("change", () => applyPreset(presetSelect.value));
 savePresetButton.addEventListener("click", openPresetDialog);
 deletePresetButton.addEventListener("click", deleteCurrentPreset);
+qualitySelect.addEventListener("change", () => selectQuality(qualitySelect.value));
 presetCancel.addEventListener("click", () => presetDialog.close("cancel"));
 presetForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -979,6 +1053,7 @@ new ResizeObserver(resize).observe(stage);
 updateRange(depthRange, depthOutput, Number(depthRange.value), 0, 2);
 updateRange(motionRange, motionOutput, Number(motionRange.value), 0, 1);
 updateRange(sizeRange, sizeOutput, Number(sizeRange.value), 0.55, 1.8);
+updateQualityUi();
 renderPresetOptions(localStorage.getItem(LAST_PRESET_KEY) || "reveal");
 applyPreset(presetSelect.value === "manual" ? "reveal" : presetSelect.value, false);
 resize();
@@ -996,6 +1071,7 @@ function animate() {
   const delta = Math.min(rawDelta, 0.05);
   const transitionDelta = Math.min(rawDelta, 0.22);
   if (!paused) elapsed += delta * (reducedMotion ? 0.08 : 1);
+  monitorAutomaticQuality(rawDelta);
 
   uniforms.uTime.value = elapsed;
   if (uniforms.uReveal.value < 1) {

@@ -66,6 +66,20 @@ try {
   await page.locator('#tune-button').focus();
   await page.keyboard.press('Tab');
   check('Tab skips closed parameter inputs', await page.evaluate(() => document.activeElement.id === 'scatter-button'));
+  await page.locator('#tune-button').click();
+  const particleCount = async () => Number((await page.locator('#source-meta').innerText()).replace(/[^0-9]/g, ''));
+  await page.locator('#quality-select').selectOption('fine');
+  await page.waitForFunction(() => document.querySelector('#quality-status').textContent === '精致');
+  await delay(900);
+  const fineCount = await particleCount();
+  await page.locator('#quality-select').selectOption('light');
+  await page.waitForFunction(() => document.querySelector('#quality-status').textContent === '轻盈');
+  await delay(900);
+  const lightCount = await particleCount();
+  check('quality profiles change particle budget and persist choice', lightCount < fineCount && await page.evaluate(() => localStorage.getItem('prism.quality.v1') === 'light'), { fineCount, lightCount });
+  await page.locator('#quality-select').selectOption('balanced');
+  await delay(700);
+  await page.keyboard.press('Escape');
 
   for (const [width, height] of [[1440,900], [1280,720], [390,844], [320,568], [844,390]]) {
     const label = `${width}x${height}`;

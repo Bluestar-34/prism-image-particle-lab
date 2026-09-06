@@ -62,8 +62,9 @@
           <section class="parameter-panel" id="parameter-panel" aria-label="粒子参数" aria-hidden="true" inert>
             <label class="range-control"><span><b>景深</b><output id="depth-output">1.20</output></span><input id="depth-range" type="range" min="0" max="2" step="0.01" value="1.20" /></label>
             <label class="range-control"><span><b>流动</b><output id="motion-output">0.32</output></span><input id="motion-range" type="range" min="0" max="1" step="0.01" value="0.32" /></label>
-            <label class="range-control"><span><b>粒径</b><output id="size-output">1.10</output></span><input id="size-range" type="range" min="0.55" max="1.8" step="0.01" value="1.10" /></label>
-          </section>
+              <label class="range-control"><span><b>粒径</b><output id="size-output">1.10</output></span><input id="size-range" type="range" min="0.55" max="1.8" step="0.01" value="1.10" /></label>
+              <label class="quality-control" for="quality-select"><span><b>质量</b><output id="quality-status">均衡</output></span><select id="quality-select"><option value="auto">自动</option><option value="light">轻盈</option><option value="balanced">均衡</option><option value="fine">精致</option></select></label>
+            </section>
           <button class="dock-button" id="scatter-button" type="button" aria-label="散开粒子" aria-pressed="false"><i data-lucide="blend" aria-hidden="true"></i><span>散开</span></button>
           <button class="dock-button" id="pause-button" type="button" aria-label="暂停动画" aria-pressed="false"><i data-lucide="pause" aria-hidden="true"></i><span>暂停</span></button>
           <button class="dock-button" id="capture-button" type="button" aria-label="进入定格模式"><i data-lucide="aperture" aria-hidden="true"></i><span>定格</span></button>
