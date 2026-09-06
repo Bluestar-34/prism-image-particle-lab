@@ -348,13 +348,27 @@ function pseudo(index, salt) {
   return value - Math.floor(value);
 }
 
-function loadImage(url) {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("默认图像读取失败"));
-    image.src = url;
-  });
+async function loadImage(url) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const response = await fetch(url, { cache: "reload", signal: controller.signal });
+    if (!response.ok) throw new Error(`默认图像请求失败（${response.status}）`);
+    const blob = await response.blob();
+    return await new Promise((resolve, reject) => {
+      const image = new Image();
+      const objectUrl = URL.createObjectURL(blob);
+      const cleanup = () => URL.revokeObjectURL(objectUrl);
+      image.onload = () => { cleanup(); resolve(image); };
+      image.onerror = () => { cleanup(); reject(new Error("默认图像解码失败")); };
+      image.src = objectUrl;
+    });
+  } catch (error) {
+    if (error.name === "AbortError") throw new Error("默认图像加载超时");
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function decodeFile(file) {
