@@ -114,7 +114,7 @@ const printDialog = document.querySelector("#print-dialog");
 const printImage = document.querySelector("#print-image");
 const printTitle = document.querySelector("#print-title");
 const printTime = document.querySelector("#print-time");
-const printApply = document.querySelector("#print-apply");
+const printDownload = document.querySelector("#print-download");
 const printDelete = document.querySelector("#print-delete");
 const printClose = document.querySelector("#print-close");
 
@@ -1023,6 +1023,10 @@ function downloadBlob(blob, filename) {
 
 async function renderAtScale(maxEdge, mime = "image/png") {
   const rect = stage.getBoundingClientRect();
+  if (!app.classList.contains("webgl-ready")) {
+    const blob = await new Promise((resolve, reject) => fallbackCanvas.toBlob((value) => value ? resolve(value) : reject(new Error("无法读取兼容画面")), mime, mime === "image/jpeg" ? 0.9 : undefined));
+    return { blob, width: fallbackCanvas.width, height: fallbackCanvas.height };
+  }
   const exportScale = Math.min(2, maxEdge / Math.max(rect.width, 1), 4096 / Math.max(rect.width, rect.height, 1));
   const originalPixelRatio = renderer.getPixelRatio();
   const originalZoom = camera.position.z;
@@ -1179,18 +1183,14 @@ function openWork(id) {
   printDialog.showModal();
 }
 
-function applyActiveWork() {
+function downloadActiveWork() {
   const work = works.find((item) => item.id === activeWorkId);
-  if (!work?.recipe) return;
-  applyingPreset = true;
-  applyLook(work.recipe);
-  if (work.rotation) rotationTarget = { ...work.rotation };
-  if (work.zoomRatio) zoomTarget = fittedZoom * work.zoomRatio;
-  publishViewState();
-  applyingPreset = false;
-  markPresetManual();
-  printDialog.close();
-  showToast("已套用这张作品的配方");
+  if (!work?.print && !work?.thumb) return;
+  const link = document.createElement("a");
+  link.href = work.print || work.thumb;
+  link.download = `${work.title || "prism-work"}.jpg`;
+  link.click();
+  showToast("原作已开始下载");
 }
 
 async function deleteActiveWork() {
@@ -1406,7 +1406,7 @@ worksGrid.addEventListener("click", (event) => {
   const card = event.target.closest("[data-work]");
   if (card) openWork(card.dataset.work);
 });
-printApply.addEventListener("click", applyActiveWork);
+printDownload.addEventListener("click", downloadActiveWork);
 printDelete.addEventListener("click", () => deleteActiveWork());
 printClose.addEventListener("click", () => printDialog.close());
 inspireButton.addEventListener("click", inspire);
