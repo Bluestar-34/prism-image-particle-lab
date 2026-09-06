@@ -56,6 +56,7 @@ createIcons({ icons });
 const app = document.querySelector("#app");
 const stage = document.querySelector("#drop-target");
 const canvas = document.querySelector("#particle-canvas");
+const fallbackCanvas = document.querySelector("#fallback-canvas");
 const fileInput = document.querySelector("#file-input");
 const chooseButton = document.querySelector("#choose-button");
 const replaceButton = document.querySelector("#replace-button");
@@ -191,6 +192,7 @@ const renderer = new THREE.WebGLRenderer({
 canvas.addEventListener("webglcontextlost", (event) => {
   event.preventDefault();
   paused = true;
+  app.classList.remove("webgl-ready");
   showToast("图形环境暂时中断，正在尝试恢复");
 });
 canvas.addEventListener("webglcontextrestored", () => {
@@ -418,6 +420,66 @@ function sampleImage(source) {
   };
 }
 
+function renderFallbackParticles(source) {
+  const rect = stage.getBoundingClientRect();
+  if (!source || rect.width <= 0 || rect.height <= 0) return;
+  const context = fallbackCanvas.getContext("2d");
+  const ratio = Math.min(devicePixelRatio || 1, 1.25);
+  fallbackCanvas.width = Math.round(rect.width * ratio);
+  fallbackCanvas.height = Math.round(rect.height * ratio);
+  context.setTransform(ratio, 0, 0, ratio, 0, 0);
+  context.clearRect(0, 0, rect.width, rect.height);
+
+  const { width: sourceWidth, height: sourceHeight } = getSourceSize(source);
+  const fit = Math.min(rect.width * 0.62 / sourceWidth, rect.height * 0.78 / sourceHeight);
+  const width = Math.max(1, Math.round(sourceWidth * fit));
+  const height = Math.max(1, Math.round(sourceHeight * fit));
+  const sampleWidth = Math.min(150, Math.max(36, Math.round(width / 5)));
+  const sampleHeight = Math.max(1, Math.round(sampleWidth * height / width));
+  const sampler = document.createElement("canvas");
+  sampler.width = sampleWidth;
+  sampler.height = sampleHeight;
+  const samplerContext = sampler.getContext("2d", { willReadFrequently: true });
+  samplerContext.drawImage(source, 0, 0, sampleWidth, sampleHeight);
+  const pixels = samplerContext.getImageData(0, 0, sampleWidth, sampleHeight).data;
+  const x0 = (rect.width - width) / 2;
+  const y0 = (rect.height - height) / 2;
+  const stepX = width / sampleWidth;
+  const stepY = height / sampleHeight;
+  const radius = Math.max(.65, Math.min(stepX, stepY) * .22);
+
+  for (let y = 0; y < sampleHeight; y += 1) {
+    for (let x = 0; x < sampleWidth; x += 1) {
+      const offset = (y * sampleWidth + x) * 4;
+      const alpha = pixels[offset + 3];
+      if (alpha < 32) continue;
+      context.fillStyle = `rgba(${pixels[offset]}, ${pixels[offset + 1]}, ${pixels[offset + 2]}, ${Math.max(.25, alpha / 255)})`;
+      context.beginPath();
+      context.arc(x0 + (x + .5) * stepX, y0 + (y + .5) * stepY, radius, 0, Math.PI * 2);
+      context.fill();
+    }
+  }
+}
+
+function verifyWebGLPaint() {
+  const gl = renderer.getContext();
+  if (gl.isContextLost()) {
+    app.classList.remove("webgl-ready");
+    return;
+  }
+  const probe = new Uint8Array(64 * 64 * 4);
+  try {
+    const x = Math.max(0, Math.floor((canvas.width - 64) / 2));
+    const y = Math.max(0, Math.floor((canvas.height - 64) / 2));
+    gl.readPixels(x, y, 64, 64, gl.RGBA, gl.UNSIGNED_BYTE, probe);
+    const hasPaint = probe.some((value, index) => index % 4 !== 3 && value > 8);
+    app.classList.toggle("webgl-ready", hasPaint);
+    if (!hasPaint) showToast("已切换为兼容粒子显示");
+  } catch {
+    app.classList.remove("webgl-ready");
+  }
+}
+
 function getDarkThreshold(pixels, width, height) {
   let total = 0;
   let count = 0;
@@ -457,6 +519,7 @@ function buildParticles(source, name, custom = false) {
     }
   }
   if (!visibleCount) throw new Error("图片完全透明，请选择包含可见内容的图片");
+  renderFallbackParticles(source);
 
   const positions = new Float32Array(visibleCount * 3);
   const origins = new Float32Array(visibleCount * 3);
@@ -595,6 +658,7 @@ function buildParticles(source, name, custom = false) {
   );
 
   if (custom) enterFocusMode();
+  requestAnimationFrame(() => setTimeout(verifyWebGLPaint, 900));
 }
 
 async function presentImage(source, name, custom = false) {
@@ -1242,6 +1306,7 @@ function resize() {
   camera.position.z = zoomTarget;
   uniforms.uPixelRatio.value = pixelRatio;
   applyBloom(Number(bloomRange.value));
+  if (currentSource) renderFallbackParticles(currentSource);
 }
 
 function updateQualityUi() {
