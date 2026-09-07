@@ -1,6 +1,0 @@
-阅读F:\vibe_projects\prism-image-particle-lab项目了解背景然后使用设计与排版skill进行优化。后面的每一步优化要记录下来。
-
-
-继续排版优化，完成后进行记录并推git，完成后对照 "F:\vibe_projects\prism-image-particle-lab\docs\PRD.md" 文档进行项目开发，每一步重要优化均需要记录和git。完成prd的内容，如果你有自己的审美与优化想法，可以对prd文档进行自主修改。最后交付物是代表你的审美与设计、功能完善、独具创意、实用性强的网页，和一套完整的说明文档，并整理项目为适合github展示的项目。
-
-阅读 等相关信息，了解市面上其他图像粒子的基本信息和功能，再创意性地优化与增强的们的prd文件。F:\vibe_projects\prism-image-particle-lab\docs\PRD.md
