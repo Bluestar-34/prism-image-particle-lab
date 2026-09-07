@@ -1202,7 +1202,11 @@ async function openWork(id) {
   if (!work) return;
   activeWorkId = id;
   if (!work.sourceData) {
-    showToast("这张旧作品没有保存源图，请重新收藏一次");
+    printImage.src = work.print || work.thumb;
+    printTitle.textContent = `${work.title} · 旧存档`;
+    printTime.textContent = "未保存源图，可预览或移出收藏";
+    printDialog.showModal();
+    showToast("旧作品不能恢复编辑，但可以移出收藏");
     return;
   }
   processing.classList.add("visible");
